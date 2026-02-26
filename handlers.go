@@ -14,6 +14,7 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 	var data ShipPlacementRequest
 	if err := app.readJSON(w, r, &data); err != nil {
 		app.handleDecodeError(w, err)
+		return
 	}
 
 	app.logger.Info("received ship placement request", "data", data)
