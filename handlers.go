@@ -12,8 +12,9 @@ type ShipPlacementRequest struct {
 
 func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request) {
 	var data ShipPlacementRequest
-	err := app.readJSON(w, r, &data)
-	app.handleDecodeError(w, err)
+	if err := app.readJSON(w, r, &data); err != nil {
+		app.handleDecodeError(w, err)
+	}
 
 	app.logger.Info("received ship placement request", "data", data)
 }
