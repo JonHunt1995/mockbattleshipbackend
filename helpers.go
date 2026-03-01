@@ -8,6 +8,8 @@ import (
 	"maps"
 	"net/http"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // Heavily influenced by https://www.alexedwards.net/blog/how-to-properly-parse-a-json-request-body
@@ -121,4 +123,35 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data any, h
 	w.Write(payload)
 	// Success!
 	return nil
+}
+
+// Read coookie value or return an error
+func (app *application) readCookie(r *http.Request) (string, error) {
+	cookie, err := r.Cookie("user")
+	if err != nil {
+		if errors.Is(err, http.ErrNoCookie) {
+			return "", err
+		}
+		app.logger.Error("Error parsing cookie: ", err.Error())
+		return "", err
+	}
+
+	return cookie.Value, nil
+}
+
+func (app *application) setCookie(w http.ResponseWriter) string {
+	id := uuid.New()
+	cookie := http.Cookie{
+		Name:     "user",
+		Value:    id.String(),
+		Path:     "/",
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	http.SetCookie(w, &cookie)
+
+	return id.String()
 }
