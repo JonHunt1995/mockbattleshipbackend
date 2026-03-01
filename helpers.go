@@ -139,16 +139,17 @@ func (app *application) readCookie(r *http.Request) (string, error) {
 	return cookie.Value, nil
 }
 
+// Write cookie and return the cookie value
 func (app *application) setCookie(w http.ResponseWriter) string {
 	id := uuid.New()
 	cookie := http.Cookie{
 		Name:     "user",
 		Value:    id.String(),
 		Path:     "/",
-		MaxAge:   3600,
+		MaxAge:   3600 * 24,
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
 	}
 
 	http.SetCookie(w, &cookie)

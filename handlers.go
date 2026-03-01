@@ -19,3 +19,18 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 
 	app.logger.Info("received ship placement request", "data", data)
 }
+
+func (app *application) setCookieHandler(w http.ResponseWriter, r *http.Request) {
+	cookieVal := app.setCookie(w)
+
+	w.Write([]byte(cookieVal))
+}
+
+func (app *application) getCookieHandler(w http.ResponseWriter, r *http.Request) {
+	cookieVal, err := app.readCookie(r)
+	if err != nil {
+		w.Write([]byte(err.Error()))
+	}
+
+	w.Write([]byte(cookieVal))
+}
