@@ -12,6 +12,7 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("POST /api/setup", app.setupGameHandler)
 	mux.HandleFunc("GET /api/get-cookie", app.getCookieHandler)
 	mux.HandleFunc("GET /api/set-cookie", app.setCookieHandler)
+	mux.HandleFunc("GET /api/users", app.getActiveUsers)
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"},
