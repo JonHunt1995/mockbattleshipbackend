@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -16,9 +17,16 @@ type config struct {
 	env  string
 }
 
+type Session struct {
+	Active    bool
+	CreatedAt time.Time
+}
+
 type application struct {
-	config config
-	logger *slog.Logger
+	config   config
+	logger   *slog.Logger
+	sessions map[string]Session
+	mu       sync.RWMutex
 }
 
 func main() {
@@ -29,8 +37,9 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	app := &application{
-		config: cfg,
-		logger: logger,
+		config:   cfg,
+		logger:   logger,
+		sessions: make(map[string]Session),
 	}
 
 	srv := &http.Server{
