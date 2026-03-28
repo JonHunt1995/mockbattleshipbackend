@@ -110,7 +110,7 @@ func (app *application) handleDecodeError(w http.ResponseWriter, err error) {
 }
 
 func (app *application) writeJSON(w http.ResponseWriter, status int, data any, headers http.Header) error {
-	payload, err := json.MarshalIndent(data, "", "\t")
+	payload, err := json.Marshal(data)
 
 	if err != nil {
 		return err
@@ -132,7 +132,7 @@ func (app *application) readCookie(r *http.Request) (string, error) {
 		if errors.Is(err, http.ErrNoCookie) {
 			return "", err
 		}
-		app.logger.Error("Error parsing cookie: ", err.Error())
+		app.logger.Error("Error parsing cookie: ", "error", err.Error())
 		return "", err
 	}
 
@@ -140,16 +140,15 @@ func (app *application) readCookie(r *http.Request) (string, error) {
 }
 
 // Write cookie and return the cookie value
-func (app *application) setCookie(w http.ResponseWriter) string {
-	id := uuid.New()
+func (app *application) setCookie(w http.ResponseWriter, id uuid.UUID) string {
 	cookie := http.Cookie{
 		Name:     "user",
 		Value:    id.String(),
 		Path:     "/",
 		MaxAge:   3600 * 24,
 		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteLaxMode,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
 	}
 
 	http.SetCookie(w, &cookie)

@@ -26,7 +26,14 @@ type application struct {
 	config   config
 	logger   *slog.Logger
 	sessions map[string]Session
+	games    map[string]ShipCoordinates
 	mu       sync.RWMutex
+}
+
+type game struct {
+	sessionToPlayer map[string]int
+	turn            int
+	hasVictor       bool
 }
 
 func main() {
@@ -40,6 +47,7 @@ func main() {
 		config:   cfg,
 		logger:   logger,
 		sessions: make(map[string]Session),
+		games:    make(map[string]ShipCoordinates),
 	}
 
 	srv := &http.Server{
