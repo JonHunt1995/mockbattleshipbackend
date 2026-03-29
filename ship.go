@@ -1,6 +1,8 @@
 package main
 
-import "strings"
+import (
+	"strings"
+)
 
 type ShipCoordinates struct {
 	Carrier    []int `json:"Carrier"`
@@ -24,7 +26,12 @@ func (sc *ShipCoordinates) getFlattenedCoords() []int {
 }
 
 func (sc *ShipCoordinates) areValid() bool {
-	return false
+	return validShipPlacement(sc.Carrier, "carrier") &&
+		validShipPlacement(sc.Battleship, "battleship") &&
+		validShipPlacement(sc.Cruiser, "cruiser") &&
+		validShipPlacement(sc.Submarine, "submarine") &&
+		validShipPlacement(sc.Destroyer, "destroyer") &&
+		noOverlaps(sc.getFlattenedCoords())
 }
 
 func validShipPlacement(ship []int, name string) bool {
@@ -67,6 +74,19 @@ func validShipPlacement(ship []int, name string) bool {
 		if diff == 1 && idx/10 != ship[0]/10 {
 			return false
 		}
+	}
+
+	return true
+}
+
+func noOverlaps(coords []int) bool {
+	distinctCoordsMap := make(map[int]bool)
+
+	for _, coord := range coords {
+		if distinctCoordsMap[coord] {
+			return false
+		}
+		distinctCoordsMap[coord] = true
 	}
 
 	return true
