@@ -59,6 +59,10 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) {
+	
+}
+
 // This endpoint only exists to verify cookies are setting properly.  In actual use setCookie() would be called by another handler
 // when deemed necessary
 // func (app *application) setCookieHandler(w http.ResponseWriter, r *http.Request) {
