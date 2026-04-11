@@ -22,7 +22,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dest an
 		mediatype := strings.ToLower(strings.TrimSpace(strings.Split(ct, ";")[0]))
 		if mediatype != "application/json" {
 			msg := "Content-Type header is not application/json"
-			return &malformedRequest{status: http.StatusUnsupportedMediaType, msg: msg}
+			return &badRequest{status: http.StatusUnsupportedMediaType, msg: msg}
 		}
 	}
 	// Checking to see if HTTP Response is too large
@@ -67,7 +67,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dest an
 			return err
 		}
 
-		return &malformedRequest{
+		return &badRequest{
 			status: status,
 			msg:    msg,
 		}
@@ -77,7 +77,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dest an
 	err = dec.Decode(&struct{}{})
 	if !errors.Is(err, io.EOF) {
 		msg := "Request body must only contain a single JSON object"
-		return &malformedRequest{
+		return &badRequest{
 			status: http.StatusBadRequest,
 			msg:    msg,
 		}
@@ -90,7 +90,7 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dest an
 // Using the error handling logic from same blog post and wrapping it into
 // a function for sanity.
 func (app *application) handleDecodeError(w http.ResponseWriter, err error) {
-	var mr *malformedRequest
+	var mr *badRequest
 	payload := make(map[string]string)
 
 	if errors.As(err, &mr) {
@@ -125,9 +125,14 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data any, h
 	return nil
 }
 
-// Read coookie value or return an error
-func (app *application) readCookie(r *http.Request) (string, error) {
-	cookie, err := r.Cookie("user")
+// Read cookie value or return an error
+func (app *application) readCookie(r *http.Request, isUser bool) (string, error) {
+	name := "game"
+	if isUser {
+		name = "user"
+	}
+
+	cookie, err := r.Cookie(name)
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
 			return "", err
@@ -140,15 +145,19 @@ func (app *application) readCookie(r *http.Request) (string, error) {
 }
 
 // Write cookie and return the cookie value
-func (app *application) setCookie(w http.ResponseWriter, id uuid.UUID) string {
+func (app *application) setCookie(w http.ResponseWriter, id uuid.UUID, isUser bool) string {
+	name := "game"
+	if isUser {
+		name = "user"
+	}
 	cookie := http.Cookie{
-		Name:     "user",
+		Name:     name,
 		Value:    id.String(),
 		Path:     "/",
 		MaxAge:   3600 * 24,
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteNoneMode,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
 	}
 
 	http.SetCookie(w, &cookie)

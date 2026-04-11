@@ -17,23 +17,11 @@ type config struct {
 	env  string
 }
 
-type Session struct {
-	Active    bool
-	CreatedAt time.Time
-}
-
 type application struct {
-	config   config
-	logger   *slog.Logger
-	sessions map[string]Session
-	games    map[string]ShipCoordinates
-	mu       sync.RWMutex
-}
-
-type game struct {
-	sessionToPlayer map[string]int
-	turn            int
-	hasVictor       bool
+	config config
+	logger *slog.Logger
+	games  map[string]*Game
+	mu     sync.Mutex
 }
 
 func main() {
@@ -43,26 +31,28 @@ func main() {
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+	var players []*Player
 	app := &application{
-		config:   cfg,
-		logger:   logger,
-		sessions: make(map[string]Session),
-		games:    make(map[string]ShipCoordinates),
+		config: cfg,
+		logger: logger,
+		games: map[string]*Game{
+			"the only game that matters": NewGame(players),
+		},
 	}
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      app.routes(),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		Addr:              fmt.Sprintf(":%d", cfg.port),
+		Handler:           app.routes(),
+		IdleTimeout:       5 * time.Minute,
+		ReadTimeout:       5 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
-
-	logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
 
 	go func() {
 		logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
+		// For localhost only, get rid of this later!
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error(err.Error())
 			os.Exit(1)

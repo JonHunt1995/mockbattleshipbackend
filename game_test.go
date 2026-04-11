@@ -6,13 +6,11 @@ import (
 )
 
 func TestGame_ValidateTurn(t *testing.T) {
-	// Setup a standard game state
-	p1 := Player{id: "p1-uuid"}
-	p2 := Player{id: "p2-uuid"}
+	p1 := &Player{Id: "p1-uuid"}
+	p2 := &Player{Id: "p2-uuid"}
 	game := &Game{
-		p1:   p1,
-		p2:   p2,
-		turn: 0,
+		Players: []*Player{p1, p2},
+		// Turn starts at 1
 	}
 
 	tests := []struct {
@@ -21,41 +19,43 @@ func TestGame_ValidateTurn(t *testing.T) {
 		playerID string
 		wantErr  bool
 	}{
-		{"Turn 0: P1's turn (Valid)", 0, "p1-uuid", false},
-		{"Turn 0: P2 tries to move (Invalid)", 0, "p2-uuid", true},
-		{"Turn 1: P2's turn (Valid)", 1, "p2-uuid", false},
-		{"Turn 1: P1 tries to move (Invalid)", 1, "p1-uuid", true},
-		{"Turn 2: P1's turn again (Valid)", 2, "p1-uuid", false},
-		{"Non-existent player moves (Invalid)", 0, "hacker-id", true},
+		// P1 is valid on Odd turns
+		{"Turn 1: P1's turn (Valid)", 1, "p1-uuid", false},
+		{"Turn 1: P2 tries to move (Invalid)", 1, "p2-uuid", true},
+		{"Turn 3: P1's turn again (Valid)", 3, "p1-uuid", false},
+
+		// P2 is valid on Even turns
+		{"Turn 2: P2's turn (Valid)", 2, "p2-uuid", false},
+		{"Turn 2: P1 tries to move (Invalid)", 2, "p1-uuid", true},
+		{"Turn 4: P2's turn again (Valid)", 4, "p2-uuid", false},
+
+		{"Non-existent player moves (Invalid)", 1, "hacker-id", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set the game state
-			game.turn = tt.setTurn
-
-			// Execute the validation
+			game.Turn = tt.setTurn
 			err := game.validateTurn(tt.playerID)
 
-			// 1. Check if error presence matches expectation
+			// 1. Check if the error presence matches expectations
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateTurn() error = %v, wantErr %v", err, tt.wantErr)
+				// Changed %d to %q since playerID is a string
+				t.Errorf("validateTurn(%q) error presence:\n  got error: %v\n  want error: %v", tt.playerID, err, tt.wantErr)
 				return
 			}
 
-			// 2. If an error occurred, verify it's our custom malformedRequest type
+			// 2. If an error was expected, verify the details
 			if tt.wantErr {
-				var mr *malformedRequest
-				// errors.As checks type and unwrap at the same time
-				if errors.As(err, &mr) {
-					if mr.status != 400 {
-						t.Errorf("Expected status 400, got %d", mr.status)
+				var br *badRequest
+				if errors.As(err, &br) {
+					if br.status != 400 {
+						t.Errorf("validateTurn(%q) status:\n  got:  %d\n  want: %d", tt.playerID, br.status, 400)
 					}
-					if mr.msg != "It is not your turn" {
-						t.Errorf("Expected msg 'It is not your turn', got %q", mr.msg)
+					if br.msg != "It is not your turn" {
+						t.Errorf("validateTurn(%q) message:\n  got:  %q\n  want: %q", tt.playerID, br.msg, "It is not your turn")
 					}
 				} else {
-					t.Errorf("Error returned was not of type *malformedRequest")
+					t.Errorf("validateTurn(%q) error type:\n  got:  %T\n  want: *badRequest", tt.playerID, err)
 				}
 			}
 		})

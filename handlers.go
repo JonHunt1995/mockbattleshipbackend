@@ -14,33 +14,64 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if !data.areValid() {
+		http.Error(w, "The uploaded ships are not properly placed", http.StatusBadRequest)
+		return
+	}
+
+	gameID := "the only game that matters"
+	playerID := uuid.New()
+	player := NewPlayer(data, playerID.String())
+
 	app.logger.Info("received ship placement request", "data", data)
 
-	gameID := uuid.New()
-	app.setCookie(w, gameID)
-	app.logger.Info("Get to here", "gameID", gameID.String())
 	app.mu.Lock()
 	app.logger.Info("Locked")
-	app.games[gameID.String()] = data
+	if _, ok := app.games[gameID]; !ok {
+		http.Error(w, "game doesn't exist", http.StatusBadRequest)
+	}
+	if err := app.games[gameID].addPlayer(player); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
 	app.logger.Info("Unlock")
 	app.mu.Unlock()
+
 	app.logger.Info("Get to there")
 	app.logger.Info("Game created", "id", gameID)
 
-	response := map[string]string{"gameID": gameID.String()}
+	app.setCookie(w, playerID, true)
+	response := map[string]string{"gameID": gameID}
 	if err := app.writeJSON(w, http.StatusAccepted, response, nil); err != nil {
 		http.Error(w, "Issue with sending JSON Response", http.StatusInternalServerError)
 	}
 }
 
+func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
+	var data Game
+
+	if err := app.readJSON(w, r, &data); err != nil {
+		app.handleDecodeError(w, err)
+		return
+	}
+	gameID := uuid.New()
+	app.setCookie(w, gameID, false)
+}
+
+type gameStateResponse struct {
+	Player   ShipCoordinates
+	Opponent ShipCoordinates
+}
+
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
-	gameID, err := app.readCookie(r)
+	playerID, err := app.readCookie(r, true)
+	gameID := "the only game that matters"
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		app.logger.Info("Bad stuff happening", "playerID Error", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	app.logger.Info("This should have the game id from a cookie", "gameID", gameID)
+	//app.logger.Info("This should have the game id from a cookie", "gameID", gameID)
 
 	app.mu.Lock()
 	gameData, exists := app.games[gameID]
@@ -52,44 +83,42 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	playerData, err := gameData.getPlayer(playerID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	opponentData, err := gameData.getOpponent(playerID)
+	app.logger.Info("This should be either opponents data or nil", "opponentData", opponentData, "error", err)
+	var opponentShips ShipCoordinates
+
+	if err == nil {
+		opponentShips = opponentData.Ships
+	}
+
+	gs := &gameStateResponse{
+		Player:   playerData.Ships,
+		Opponent: opponentShips,
+	}
+
+	app.logger.Info("gameState", "Player", playerData, "Opponent", opponentData)
 	// Return the ships so the "Play" component can render them
-	if err := app.writeJSON(w, http.StatusOK, gameData, nil); err != nil {
+	if err := app.writeJSON(w, http.StatusOK, gs, nil); err != nil {
 		http.Error(w, "Issue with sending JSON Response", http.StatusInternalServerError)
 		return
 	}
 }
 
 func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) {
-	
-}
 
-// This endpoint only exists to verify cookies are setting properly.  In actual use setCookie() would be called by another handler
-// when deemed necessary
-// func (app *application) setCookieHandler(w http.ResponseWriter, r *http.Request) {
-// 	cookieVal := app.setCookie(w)
-// 	app.mu.Lock()
-// 	app.sessions[cookieVal] = Session{Active: true, CreatedAt: time.Now()} // user added to Session map
-// 	app.mu.Unlock()
-// 	w.Write([]byte(cookieVal))
-// }
-
-// This endpoint only exists to verify cookies can be read.  In actual use readCookie() will be called by other handlers
-// like recieveAttack or createGame to tell game logic which user/game to operate on
-func (app *application) getCookieHandler(w http.ResponseWriter, r *http.Request) {
-	cookieVal, err := app.readCookie(r)
-	if err != nil {
-		w.Write([]byte(err.Error()))
-	}
-
-	w.Write([]byte(cookieVal))
 }
 
 // Again, testing handler: verifies sessions are being created in the setCookieHandler
-func (app *application) getActiveUsers(w http.ResponseWriter, r *http.Request) {
-	app.mu.RLock()
-	defer app.mu.RUnlock()
+func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
 
-	err := app.writeJSON(w, http.StatusOK, app.sessions, nil)
+	err := app.writeJSON(w, http.StatusOK, app.games, nil)
 	if err != nil {
 		app.logger.Error("json encoding failed", "error", err.Error())
 		http.Error(w, "server error", http.StatusInternalServerError)

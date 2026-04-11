@@ -1,10 +1,10 @@
 package main
 
-type malformedRequest struct {
+type badRequest struct {
 	status int
 	msg    string
 }
 
-func (mr *malformedRequest) Error() string {
+func (mr *badRequest) Error() string {
 	return mr.msg
 }

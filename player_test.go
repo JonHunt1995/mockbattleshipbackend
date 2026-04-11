@@ -8,8 +8,8 @@ import (
 func TestPlayer_Guesses(t *testing.T) {
 	// Setup a player with some initial state
 	p := &Player{
-		id:      "test-player",
-		guesses: []int{10, 20},
+		Id:      "test-player",
+		Guesses: []int{10, 20},
 	}
 
 	// Table for validateGuess and AddGuess
@@ -40,14 +40,14 @@ func TestPlayer_Guesses(t *testing.T) {
 
 			// 2. Test AddGuess
 			// We only call AddGuess if we want to test the success/failure flow
-			initialCount := len(p.guesses)
+			initialCount := len(p.Guesses)
 			err = p.AddGuess(tt.guess)
 
 			if !tt.wantError {
 				if err != nil {
 					t.Errorf("AddGuess(%d) failed unexpectedly: %v", tt.guess, err)
 				}
-				if len(p.guesses) != initialCount+1 {
+				if len(p.Guesses) != initialCount+1 {
 					t.Errorf("AddGuess(%d) did not increase guesses count", tt.guess)
 				}
 			} else if err == nil {
@@ -103,8 +103,8 @@ func TestPlayer_GetHitsAndMisses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Player{guesses: tt.myGuesses}
-			other := &Player{ships: tt.otherShips}
+			p := &Player{Guesses: tt.myGuesses}
+			other := &Player{Ships: tt.otherShips}
 
 			gotHits, gotMisses := p.getHitsAndMisses(other)
 
