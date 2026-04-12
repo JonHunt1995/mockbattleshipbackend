@@ -57,17 +57,26 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 	app.setCookie(w, gameID, false)
 }
 
+type LivingShips struct {
+	Carrier bool
+	Battleship bool
+	Cruiser bool
+	Submarine bool
+	
+}
 type gameStateResponse struct {
-	Player   ShipCoordinates
-	Opponent ShipCoordinates
+	PlayerShips    []int
+	PlayerHits     []int
+	OpponentHits   []int
+	OpponentMisses []int
 }
 
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	playerID, err := app.readCookie(r, true)
 	gameID := "the only game that matters"
+
 	if err != nil {
-		app.logger.Info("Bad stuff happening", "playerID Error", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 
@@ -79,13 +88,13 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	app.mu.Unlock()
 
 	if !exists {
-		http.Error(w, "Game ID not found", http.StatusNotFound)
+		app.notFoundResponse(w, r)
 		return
 	}
 
 	playerData, err := gameData.getPlayer(playerID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		app.badRequestResponse(w, r, err)
 	}
 
 	opponentData, err := gameData.getOpponent(playerID)
@@ -97,14 +106,17 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gs := &gameStateResponse{
-		Player:   playerData.Ships,
-		Opponent: opponentShips,
+		PlayerShips:   playerData.Ships,
+		PlayerHits: playerData.,
+		PlayerMisses: ,
+		OpponentHits: opponentShips,
+		OpponentMisses: ,
 	}
 
 	app.logger.Info("gameState", "Player", playerData, "Opponent", opponentData)
 	// Return the ships so the "Play" component can render them
 	if err := app.writeJSON(w, http.StatusOK, gs, nil); err != nil {
-		http.Error(w, "Issue with sending JSON Response", http.StatusInternalServerError)
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 }
