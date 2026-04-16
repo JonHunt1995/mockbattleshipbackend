@@ -8,10 +8,7 @@ import (
 func TestGame_ValidateTurn(t *testing.T) {
 	p1 := &Player{Id: "p1-uuid"}
 	p2 := &Player{Id: "p2-uuid"}
-	game := &Game{
-		Players: []*Player{p1, p2},
-		// Turn starts at 1
-	}
+	game := NewGame([]*Player{p1, p2})
 
 	tests := []struct {
 		name     string

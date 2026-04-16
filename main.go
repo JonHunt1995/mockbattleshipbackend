@@ -36,7 +36,7 @@ func main() {
 		config: cfg,
 		logger: logger,
 		games: map[string]*Game{
-			"the only game that matters": NewGame(players),
+			"onlygame": NewGame(players),
 		},
 	}
 

@@ -14,61 +14,68 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if !data.areValid() {
-		http.Error(w, "The uploaded ships are not properly placed", http.StatusBadRequest)
+	if err := data.areValid(); err != nil {
+		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	gameID := "the only game that matters"
+	gameID := r.PathValue("gameID")
+	var err error
+
+	if gameID == "" {
+		gameID, err = app.readCookie(r, false)
+		if err != nil {
+			app.notFoundResponse(w, r)
+		}
+	}
+
 	playerID := uuid.New()
 	player := NewPlayer(data, playerID.String())
 
 	app.logger.Info("received ship placement request", "data", data)
 
-	app.mu.Lock()
-	app.logger.Info("Locked")
-	if _, ok := app.games[gameID]; !ok {
-		http.Error(w, "game doesn't exist", http.StatusBadRequest)
+	game, err := app.getGame(gameID)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
 	}
-	if err := app.games[gameID].addPlayer(player); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-	app.logger.Info("Unlock")
-	app.mu.Unlock()
 
-	app.logger.Info("Get to there")
-	app.logger.Info("Game created", "id", gameID)
+	game.mu.Lock()
+	defer game.mu.Unlock()
+
+	if err := game.addPlayer(player); err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
 
 	app.setCookie(w, playerID, true)
+
 	response := map[string]string{"gameID": gameID}
 	if err := app.writeJSON(w, http.StatusAccepted, response, nil); err != nil {
-		http.Error(w, "Issue with sending JSON Response", http.StatusInternalServerError)
+		app.serverErrorResponse(w, r, err)
+		return
 	}
 }
 
 func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
-	var data Game
+	gameID := uuid.New()
+	playerID := uuid.New()
+	app.setCookie(w, gameID, false)
+	app.setCookie(w, playerID, true)
 
-	if err := app.readJSON(w, r, &data); err != nil {
-		app.handleDecodeError(w, err)
+	if err := app.setGame(gameID.String()); err != nil {
+		app.serverErrorResponse(w, r, err)
 		return
 	}
-	gameID := uuid.New()
-	app.setCookie(w, gameID, false)
 }
 
-type LivingShips struct {
-	Carrier bool
-	Battleship bool
-	Cruiser bool
-	Submarine bool
-	
-}
 type gameStateResponse struct {
-	PlayerShips    []int
-	PlayerHits     []int
-	OpponentHits   []int
-	OpponentMisses []int
+	PlayerShips         []int
+	PlayerHits          []int
+	PlayerMisses        []int
+	PlayerLivingShips   LivingShips
+	OpponentHits        []int
+	OpponentMisses      []int
+	OpponentLivingShips LivingShips
 }
 
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -80,40 +87,52 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//app.logger.Info("This should have the game id from a cookie", "gameID", gameID)
-
 	app.mu.Lock()
+	defer app.mu.Unlock()
 	gameData, exists := app.games[gameID]
 	app.logger.Info("This should have game data", "gameData", gameData)
-	app.mu.Unlock()
 
 	if !exists {
 		app.notFoundResponse(w, r)
 		return
 	}
 
-	playerData, err := gameData.getPlayer(playerID)
+	player, err := gameData.getPlayer(playerID)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 	}
 
-	opponentData, err := gameData.getOpponent(playerID)
-	app.logger.Info("This should be either opponents data or nil", "opponentData", opponentData, "error", err)
-	var opponentShips ShipCoordinates
+	opponent, err := gameData.getOpponent(playerID)
+	app.logger.Info("This should be either opponents data or nil", "opponent", opponent, "error", err)
+	var opponentHits []int
+	var opponentMisses []int
+	var opponentLivingShips LivingShips
+	var playerHits []int
+	var playerMisses []int
+	playerLivingShips := &LivingShips{
+		Carrier:    true,
+		Battleship: true,
+		Cruiser:    true,
+		Submarine:  true,
+		Destroyer:  true,
+	}
 
 	if err == nil {
-		opponentShips = opponentData.Ships
+		opponentHits, opponentMisses = opponent.getHitsAndMisses(player)
+
 	}
 
 	gs := &gameStateResponse{
-		PlayerShips:   playerData.Ships,
-		PlayerHits: playerData.,
-		PlayerMisses: ,
-		OpponentHits: opponentShips,
-		OpponentMisses: ,
+		PlayerShips:         player.Ships.getFlattenedCoords(),
+		PlayerHits:          playerHits,
+		PlayerMisses:        playerMisses,
+		PlayerLivingShips:   *playerLivingShips,
+		OpponentHits:        opponentHits,
+		OpponentMisses:      opponentMisses,
+		OpponentLivingShips: opponentLivingShips,
 	}
 
-	app.logger.Info("gameState", "Player", playerData, "Opponent", opponentData)
+	app.logger.Info("gameState", "Player", player, "Opponent", opponent)
 	// Return the ships so the "Play" component can render them
 	if err := app.writeJSON(w, http.StatusOK, gs, nil); err != nil {
 		app.serverErrorResponse(w, r, err)

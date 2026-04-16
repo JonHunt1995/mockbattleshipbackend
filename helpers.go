@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"maps"
 	"net/http"
 	"strings"
@@ -146,7 +145,7 @@ func (app *application) readCookie(r *http.Request, isUser bool) (string, error)
 }
 
 // Write cookie and return the cookie value
-func (app *application) setCookie(w http.ResponseWriter, id uuid.UUID, isUser bool) string {
+func (app *application) setCookie(w http.ResponseWriter, id uuid.UUID, isUser bool) {
 	name := "game"
 	if isUser {
 		name = "user"
@@ -162,6 +161,59 @@ func (app *application) setCookie(w http.ResponseWriter, id uuid.UUID, isUser bo
 	}
 
 	http.SetCookie(w, &cookie)
+}
 
-	return id.String()
+func (app *application) clearCookies(w http.ResponseWriter) {
+	gc := http.Cookie{
+		Name:     "game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	uc := http.Cookie{
+		Name:     "user",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &gc)
+	http.SetCookie(w, &uc)
+}
+
+func (app *application) setGame(gameID string) error {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+
+	var players []*Player
+
+	if _, ok := app.games[gameID]; ok {
+		return fmt.Errorf("game %q already exists", gameID)
+	}
+
+	game := NewGame(players)
+
+	app.games[gameID] = game
+
+	return nil
+}
+
+func (app *application) getGame(gameID string) (*Game, error) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+
+	game, ok := app.games[gameID]
+
+	if !ok {
+		return nil, fmt.Errorf("game %q not found", gameID)
+	}
+
+	return game, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -25,13 +26,17 @@ func (sc *ShipCoordinates) getFlattenedCoords() []int {
 	return flattened
 }
 
-func (sc *ShipCoordinates) areValid() bool {
-	return validShipPlacement(sc.Carrier, "carrier") &&
+func (sc *ShipCoordinates) areValid() error {
+	if validShipPlacement(sc.Carrier, "carrier") &&
 		validShipPlacement(sc.Battleship, "battleship") &&
 		validShipPlacement(sc.Cruiser, "cruiser") &&
 		validShipPlacement(sc.Submarine, "submarine") &&
 		validShipPlacement(sc.Destroyer, "destroyer") &&
-		noOverlaps(sc.getFlattenedCoords())
+		noOverlaps(sc.getFlattenedCoords()) {
+		return nil
+	}
+
+	return fmt.Errorf("The uploaded ships are not properly placed")
 }
 
 func validShipPlacement(ship []int, name string) bool {

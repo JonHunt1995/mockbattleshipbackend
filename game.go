@@ -1,14 +1,18 @@
 package main
 
+import "sync"
+
 type Game struct {
 	Players []*Player
 	Turn    int
+	mu sync.Mutex
 }
 
 func NewGame(players []*Player) *Game {
 	return &Game{
 		Players: players,
 		Turn:    1,
+		mu: sync.Mutex{},
 	}
 }
 
@@ -96,8 +100,4 @@ func (g *Game) playTurn(player_id string, guess int) error {
 	}
 
 	return nil
-}
-
-func (g *Game) getLivingShips(player_id string) {
-
 }

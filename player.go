@@ -8,6 +8,14 @@ type Player struct {
 	Guesses []int
 }
 
+type LivingShips struct {
+	Carrier    bool
+	Battleship bool
+	Cruiser    bool
+	Submarine  bool
+	Destroyer  bool
+}
+
 func NewPlayer(sc ShipCoordinates, id string) *Player {
 	var guesses []int
 
@@ -64,4 +72,29 @@ func (p *Player) getHitsAndMisses(other *Player) ([]int, []int) {
 	}
 
 	return hits, misses
+}
+
+func (p *Player) getLivingShips(other *Player) LivingShips {
+	guesses := make(map[int]bool)
+	for _, guess := range other.Guesses {
+		guesses[guess] = true
+	}
+
+	return LivingShips{
+		Carrier:    isShipAlive(p.Ships.Carrier, guesses),
+		Battleship: isShipAlive(p.Ships.Battleship, guesses),
+		Cruiser:    isShipAlive(p.Ships.Cruiser, guesses),
+		Submarine:  isShipAlive(p.Ships.Submarine, guesses),
+		Destroyer:  isShipAlive(p.Ships.Destroyer, guesses),
+	}
+}
+
+func isShipAlive(coords []int, guesses map[int]bool) bool {
+	for _, coord := range coords {
+		if !guesses[coord] {
+			return true
+		}
+	}
+
+	return false
 }
