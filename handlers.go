@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -21,7 +22,6 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 
 	gameID := r.PathValue("gameID")
 	var err error
-
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
@@ -29,8 +29,14 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	playerID := uuid.New()
-	player := NewPlayer(data, playerID.String())
+	playerID, err := app.readCookie(r, true)
+	if err != nil {
+		playerUUID := uuid.New()
+		app.setCookie(w, playerUUID, true)
+		playerID = playerUUID.String()
+	}
+
+	player := NewPlayer(data, playerID)
 
 	app.logger.Info("received ship placement request", "data", data)
 
@@ -47,8 +53,6 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	app.setCookie(w, playerID, true)
-
 	response := map[string]string{"gameID": gameID}
 	if err := app.writeJSON(w, http.StatusAccepted, response, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -56,13 +60,28 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+type createGameResponse struct {
+	InviteLink string
+}
+
 func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
+	// will have to update this in prod from localhost
+	link := "http://localhost:5173"
 	gameID := uuid.New()
 	playerID := uuid.New()
 	app.setCookie(w, gameID, false)
 	app.setCookie(w, playerID, true)
 
 	if err := app.setGame(gameID.String()); err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	inviteURL := fmt.Sprintf("%s/setup/%s", link, gameID)
+
+	payload := &createGameResponse{InviteLink: inviteURL}
+
+	if err := app.writeJSON(w, http.StatusAccepted, payload, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -133,7 +152,7 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.logger.Info("gameState", "Player", player, "Opponent", opponent)
-	// Return the ships so the "Play" component can render them
+
 	if err := app.writeJSON(w, http.StatusOK, gs, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -141,10 +160,18 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) {
-
+	// TODO: this will be the handler that actually deals with game move logic
+	// by receiving moves from the frontend.
+	// the backend will first:
+	// - check if move is valid
+	// 	- if move isn't valid, send back helpful errors to client and keep game state
+	// 		the same
+	// 	- otherwise, move is fine and we'll contimue moving the chain
+	// - apply move
+	// - send back updated game state response to respective clients
+	// 	- will this pub/sub or how will this work? We could tell the FE to do a PRG
 }
 
-// Again, testing handler: verifies sessions are being created in the setCookieHandler
 func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
 	app.mu.Lock()
 	defer app.mu.Unlock()
