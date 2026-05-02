@@ -100,7 +100,7 @@ type gameStateResponse struct {
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	playerID, err := app.readCookie(r, true)
 	gameID := r.PathValue("gameID")
-	var err error
+
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
@@ -167,7 +167,11 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type playerMove struct {
-	Position int
+	Guess int
+}
+
+func (pm *playerMove) getGuess() int {
+	return pm.Guess
 }
 
 func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +192,10 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 		app.badRequestResponse(w, r, err)
 	}
 
+	playerID, err := app.readCookie(r, true)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+	}
 	gameID := r.PathValue("gameID")
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
@@ -195,13 +203,19 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 			app.notFoundResponse(w, r)
 		}
 	}
-	
+
 	game, err := app.getGame(gameID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	err = game.playTurn()
+	err = game.playTurn(playerID, move.getGuess())
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+	}
 }
 
 func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
