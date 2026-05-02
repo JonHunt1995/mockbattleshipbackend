@@ -1,18 +1,20 @@
 package main
 
-import "sync"
+import (
+	"sync"
+)
 
 type Game struct {
 	Players []*Player
 	Turn    int
-	mu sync.Mutex
+	mu      sync.Mutex
 }
 
 func NewGame(players []*Player) *Game {
 	return &Game{
 		Players: players,
 		Turn:    1,
-		mu: sync.Mutex{},
+		mu:      sync.Mutex{},
 	}
 }
 
@@ -79,7 +81,7 @@ func (g *Game) getOpponent(playerId string) (*Player, error) {
 	return g.Players[other], nil
 }
 
-func (g *Game) validateTurn(player_id string) error {
+func (g *Game) validateTurn(player_id string, guess int) error {
 	playersTurn := (g.Turn + 1) % 2
 	if g.Players[playersTurn].Id == player_id {
 		return nil

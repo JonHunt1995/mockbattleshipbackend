@@ -99,29 +99,37 @@ type gameStateResponse struct {
 
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	playerID, err := app.readCookie(r, true)
-	gameID := "the only game that matters"
+	gameID := r.PathValue("gameID")
+	var err error
+	if gameID == "" {
+		gameID, err = app.readCookie(r, false)
+		if err != nil {
+			app.notFoundResponse(w, r)
+		}
+	}
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	app.mu.Lock()
-	defer app.mu.Unlock()
-	gameData, exists := app.games[gameID]
-	app.logger.Info("This should have game data", "gameData", gameData)
+	game, err := app.getGame(gameID)
+	app.logger.Info("This should have game data", "game", game)
 
-	if !exists {
+	if err != nil {
 		app.notFoundResponse(w, r)
 		return
 	}
 
-	player, err := gameData.getPlayer(playerID)
+	game.mu.Lock()
+	defer game.mu.Unlock()
+
+	player, err := game.getPlayer(playerID)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 	}
 
-	opponent, err := gameData.getOpponent(playerID)
+	opponent, err := game.getOpponent(playerID)
 	app.logger.Info("This should be either opponents data or nil", "opponent", opponent, "error", err)
 	var opponentHits []int
 	var opponentMisses []int
@@ -138,7 +146,6 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err == nil {
 		opponentHits, opponentMisses = opponent.getHitsAndMisses(player)
-
 	}
 
 	gs := &gameStateResponse{
@@ -159,6 +166,10 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type playerMove struct {
+	Position int
+}
+
 func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: this will be the handler that actually deals with game move logic
 	// by receiving moves from the frontend.
@@ -170,6 +181,27 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 	// - apply move
 	// - send back updated game state response to respective clients
 	// 	- will this pub/sub or how will this work? We could tell the FE to do a PRG
+	var move playerMove
+
+	err := app.readJSON(w, r, move)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+	}
+
+	gameID := r.PathValue("gameID")
+	if gameID == "" {
+		gameID, err = app.readCookie(r, false)
+		if err != nil {
+			app.notFoundResponse(w, r)
+		}
+	}
+	
+	game, err := app.getGame(gameID)
+
+	game.mu.Lock()
+	defer game.mu.Unlock()
+
+	err = game.playTurn()
 }
 
 func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
