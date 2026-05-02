@@ -227,4 +227,4 @@ func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
 		app.logger.Error("json encoding failed", "error", err.Error())
 		http.Error(w, "server error", http.StatusInternalServerError)
 	}
-}
+} 

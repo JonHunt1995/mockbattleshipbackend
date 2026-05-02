@@ -103,3 +103,25 @@ func (g *Game) playTurn(player_id string, guess int) error {
 
 	return nil
 }
+
+func (g *Game) getGameState(playerID string) (gameStateResponse, error) {
+	player, err := game.getPlayer()
+	if err != nil {
+		return nil, err
+	}
+	playerShips := player.Ships.getFlattenedCoords()
+	var playerHits []int
+	var playerMisses []int
+	var opponentHits []int
+	var opponentMisses []int
+
+	opp, err := game.getOpponent(playerID)
+	if err == nil {
+		return nil, err
+	}
+
+	
+	return  &gameStateResponse{
+
+	}, nil
+}
