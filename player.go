@@ -16,6 +16,16 @@ type LivingShips struct {
 	Destroyer  bool
 }
 
+func NewLivingShips() *LivingShips {
+	return &LivingShips{
+	Carrier: true,
+	Battleship: true,
+	Cruiser: true,
+	Submarine: true,
+	Destroyer: true
+	}
+
+
 func NewPlayer(sc ShipCoordinates, id string) *Player {
 	var guesses []int
 

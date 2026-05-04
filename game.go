@@ -82,7 +82,7 @@ func (g *Game) getOpponent(playerId string) (*Player, error) {
 }
 
 func (g *Game) validateTurn(player_id string, guess int) error {
-	playersTurn := (g.Turn + 1) % 2
+playersTurn := (g.Turn + 1) % 2
 	if g.Players[playersTurn].Id == player_id {
 		return nil
 	}
@@ -112,16 +112,30 @@ func (g *Game) getGameState(playerID string) (gameStateResponse, error) {
 	playerShips := player.Ships.getFlattenedCoords()
 	var playerHits []int
 	var playerMisses []int
+	playerLivingShips := NewLivingShips()
 	var opponentHits []int
 	var opponentMisses []int
+	var opponentShips []int
+	opponentLivingShips := NewLivingShips()
 
 	opp, err := game.getOpponent(playerID)
 	if err == nil {
-		return nil, err
+		opponentHits, opponentMisses = opp.getHitsAndMisses(player)
+		playerHits, playerMisses = player.getHitsAndMisses(opp)
+		playerLivingShips = player.getLivingShips(other)
+		opponentShips = opp.getFlattenedCoords()	
+		opponentLivingShips = opp.getLivingShips(player)
 	}
 
 	
 	return  &gameStateResponse{
-
+		PlayerShips: playerShips,
+		PlayerHits: playerHits,
+		PlayerMisses: playerMisses,
+		PlayerLivingShips: playerLivingShips,
+		OpponentShips: opponentLivingShips,
+		OpponentHits: opponentHits,
+		OpponentMisses: opponentMisses,
+		OpponentLivingShips: opponentLivingShips,
 	}, nil
 }

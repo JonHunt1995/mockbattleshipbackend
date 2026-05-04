@@ -92,6 +92,7 @@ type gameStateResponse struct {
 	PlayerHits          []int
 	PlayerMisses        []int
 	PlayerLivingShips   LivingShips
+	OpponentShips []int
 	OpponentHits        []int
 	OpponentMisses      []int
 	OpponentLivingShips LivingShips
