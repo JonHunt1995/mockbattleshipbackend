@@ -224,6 +224,18 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 		app.badRequestResponse(w, r, err)
 		return
 	}
+
+	gs, err := game.getGameState(playerID)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return 
+	}
+
+	err := app.writeJSON(w, http.StatusOK, gs, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 }
 
 func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
