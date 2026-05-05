@@ -87,7 +87,7 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type gameStateResponse struct {
+Type gameStateResponse struct {
 	PlayerShips         []int
 	PlayerHits          []int
 	PlayerMisses        []int
@@ -106,6 +106,7 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
 			app.notFoundResponse(w, r)
+			return
 		}
 	}
 
@@ -128,6 +129,7 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	player, err := game.getPlayer(playerID)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
+		return
 	}
 
 	opponent, err := game.getOpponent(playerID)
@@ -182,7 +184,7 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 	// - check if move is valid
 	// 	- if move isn't valid, send back helpful errors to client and keep game state
 	// 		the same
-	// 	- otherwise, move is fine and we'll contimue moving the chain
+	// 	- otherwise, move is fine and we'll continue moving the chain
 	// - apply move
 	// - send back updated game state response to respective clients
 	// 	- will this pub/sub or how will this work? We could tell the FE to do a PRG
@@ -190,24 +192,28 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 
 	err := app.readJSON(w, r, move)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		app.handleDecodeError(w, err)
+		return
 	}
 
 	playerID, err := app.readCookie(r, true)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
+		return
 	}
 	gameID := r.PathValue("gameID")
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
 			app.notFoundResponse(w, r)
+			return
 		}
 	}
 
 	game, err := app.getGame(gameID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
+		return
 	}
 
 	game.mu.Lock()
@@ -216,6 +222,7 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 	err = game.playTurn(playerID, move.getGuess())
 	if err != nil {
 		app.badRequestResponse(w, r, err)
+		return
 	}
 }
 
