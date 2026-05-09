@@ -10,42 +10,45 @@ func TestValidShipPlacement(t *testing.T) {
 		name     string
 		ship     []int
 		shipName string
-		want     bool
+		want     bool // Changed back to bool to match function return
 	}{
-		// --- VALID CASES ---
+		// --- VALID CASES (Return true) ---
 		{"Valid Carrier Horizontal", []int{0, 1, 2, 3, 4}, "carrier", true},
 		{"Valid Battleship Vertical", []int{10, 20, 30, 40}, "battleship", true},
 		{"Valid Destroyer Top Right", []int{8, 9}, "destroyer", true},
 		{"Valid Destroyer Bottom Right", []int{98, 99}, "destroyer", true},
 		{"Valid Submarine Mixed Case", []int{44, 45, 46}, "SubMaRiNe", true},
 
-		// --- LENGTH & NAME FAILURES ---
+		// --- LENGTH & NAME FAILURES (Return false) ---
 		{"Invalid Name", []int{1, 2}, "tugboat", false},
 		{"Wrong Length (Too Short)", []int{10, 20}, "cruiser", false},
 		{"Wrong Length (Too Long)", []int{10, 11, 12}, "destroyer", false},
 		{"Slice Too Short (Len 1)", []int{10}, "destroyer", false},
 		{"Empty Slice", []int{}, "destroyer", false},
 
-		// --- CONTIGUITY & ORIENTATION FAILURES ---
+		// --- CONTIGUITY & ORIENTATION FAILURES (Return false) ---
 		{"Non-contiguous Horizontal", []int{1, 2, 4}, "cruiser", false},
 		{"Non-contiguous Vertical", []int{10, 20, 40}, "cruiser", false},
 		{"Diagonal (Diff 11)", []int{10, 21}, "destroyer", false},
 		{"Diagonal (Diff 9)", []int{10, 19}, "destroyer", false},
 		{"Reverse Order", []int{20, 10}, "destroyer", false},
 
-		// --- BOUNDS FAILURES ---
+		// --- BOUNDS FAILURES (Return false) ---
 		{"Negative Index", []int{-1, 0}, "destroyer", false},
 		{"Index Too High", []int{99, 100}, "destroyer", false},
 
-		// --- ROW WRAPPING FAILURES ---
+		// --- ROW WRAPPING FAILURES (Return false) ---
 		{"Horizontal Wrap Row 0 to 1", []int{9, 10}, "destroyer", false},
 		{"Horizontal Wrap Row 4 to 5", []int{48, 49, 50}, "cruiser", false},
-		{"Vertical 'Wrap' (Not possible with diff 10, but good to check)", []int{90, 100}, "destroyer", false},
+		{"Vertical 'Wrap'", []int{90, 100}, "destroyer", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// validShipPlacement returns a bool
 			got := validShipPlacement(tt.ship, tt.shipName)
+
+			// Simple boolean comparison
 			if got != tt.want {
 				t.Errorf("validShipPlacement(%v, %q) = %v; want %v", tt.ship, tt.shipName, got, tt.want)
 			}
@@ -134,7 +137,7 @@ func TestShipCoordinates_AreValid(t *testing.T) {
 	tests := []struct {
 		name string
 		sc   ShipCoordinates
-		want bool
+		want bool // true means valid (nil error), false means invalid (has error)
 	}{
 		{
 			name: "Perfect Board (All Valid)",
@@ -151,7 +154,7 @@ func TestShipCoordinates_AreValid(t *testing.T) {
 			name: "Overlap Failure (Carrier and Battleship touch at 10)",
 			sc: ShipCoordinates{
 				Carrier:    []int{10, 11, 12, 13, 14},
-				Battleship: []int{0, 10, 20, 30}, // Overlap at 10
+				Battleship: []int{0, 10, 20, 30},
 				Cruiser:    []int{97, 98, 99},
 				Submarine:  []int{50, 51, 52},
 				Destroyer:  []int{70, 80},
@@ -162,7 +165,7 @@ func TestShipCoordinates_AreValid(t *testing.T) {
 			name: "Individual Ship Failure (Battleship too short)",
 			sc: ShipCoordinates{
 				Carrier:    []int{0, 1, 2, 3, 4},
-				Battleship: []int{10, 11, 12}, // Should be 4, is 3
+				Battleship: []int{10, 11, 12},
 				Cruiser:    []int{20, 21, 22},
 				Submarine:  []int{30, 31, 32},
 				Destroyer:  []int{40, 41},
@@ -176,7 +179,7 @@ func TestShipCoordinates_AreValid(t *testing.T) {
 				Battleship: []int{10, 11, 12, 13},
 				Cruiser:    []int{20, 21, 22},
 				Submarine:  []int{30, 31, 32},
-				Destroyer:  []int{9, 10}, // Invalid wrap from row 0 to 1
+				Destroyer:  []int{9, 10},
 			},
 			want: false,
 		},
@@ -184,8 +187,12 @@ func TestShipCoordinates_AreValid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.sc.areValid(); got != tt.want {
-				t.Errorf("areValid() = %v, want %v", got, tt.want)
+			got := tt.sc.areValid()
+
+			// Check if the presence of an error matches the boolean expectation
+			// (got == nil) is true if the ship is valid
+			if (got == nil) != tt.want {
+				t.Errorf("areValid() result error = %v, want valid = %v", got, tt.want)
 			}
 		})
 	}

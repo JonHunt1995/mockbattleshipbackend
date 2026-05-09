@@ -92,6 +92,7 @@ type gameStateResponse struct {
 	PlayerHits          []int
 	PlayerMisses        []int
 	PlayerLivingShips   LivingShips
+	OpponentShips       []int
 	OpponentHits        []int
 	OpponentMisses      []int
 	OpponentLivingShips LivingShips
@@ -100,11 +101,12 @@ type gameStateResponse struct {
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	playerID, err := app.readCookie(r, true)
 	gameID := r.PathValue("gameID")
-	var err error
+
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
 			app.notFoundResponse(w, r)
+			return
 		}
 	}
 
@@ -127,37 +129,16 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	player, err := game.getPlayer(playerID)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
+		return
 	}
 
 	opponent, err := game.getOpponent(playerID)
 	app.logger.Info("This should be either opponents data or nil", "opponent", opponent, "error", err)
-	var opponentHits []int
-	var opponentMisses []int
-	var opponentLivingShips LivingShips
-	var playerHits []int
-	var playerMisses []int
-	playerLivingShips := &LivingShips{
-		Carrier:    true,
-		Battleship: true,
-		Cruiser:    true,
-		Submarine:  true,
-		Destroyer:  true,
-	}
 
-	if err == nil {
-		opponentHits, opponentMisses = opponent.getHitsAndMisses(player)
+	gs, err := game.getGameState(player.Id)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
 	}
-
-	gs := &gameStateResponse{
-		PlayerShips:         player.Ships.getFlattenedCoords(),
-		PlayerHits:          playerHits,
-		PlayerMisses:        playerMisses,
-		PlayerLivingShips:   *playerLivingShips,
-		OpponentHits:        opponentHits,
-		OpponentMisses:      opponentMisses,
-		OpponentLivingShips: opponentLivingShips,
-	}
-
 	app.logger.Info("gameState", "Player", player, "Opponent", opponent)
 
 	if err := app.writeJSON(w, http.StatusOK, gs, nil); err != nil {
@@ -167,7 +148,11 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type playerMove struct {
-	Position int
+	Guess int
+}
+
+func (pm *playerMove) getGuess() int {
+	return pm.Guess
 }
 
 func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +162,7 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 	// - check if move is valid
 	// 	- if move isn't valid, send back helpful errors to client and keep game state
 	// 		the same
-	// 	- otherwise, move is fine and we'll contimue moving the chain
+	// 	- otherwise, move is fine and we'll continue moving the chain
 	// - apply move
 	// - send back updated game state response to respective clients
 	// 	- will this pub/sub or how will this work? We could tell the FE to do a PRG
@@ -185,23 +170,51 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 
 	err := app.readJSON(w, r, move)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		app.handleDecodeError(w, err)
+		return
 	}
 
+	playerID, err := app.readCookie(r, true)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	
 	gameID := r.PathValue("gameID")
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
 			app.notFoundResponse(w, r)
+			return
 		}
 	}
-	
+
 	game, err := app.getGame(gameID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	err = game.playTurn()
+	err = game.playTurn(playerID, move.getGuess())
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	gs, err := game.getGameState(playerID)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, gs, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 }
 
 func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
@@ -211,6 +224,6 @@ func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
 	err := app.writeJSON(w, http.StatusOK, app.games, nil)
 	if err != nil {
 		app.logger.Error("json encoding failed", "error", err.Error())
-		http.Error(w, "server error", http.StatusInternalServerError)
+		app.serverErrorResponse(w, r, err)
 	}
 }
