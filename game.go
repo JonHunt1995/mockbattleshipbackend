@@ -104,6 +104,16 @@ func (g *Game) playTurn(player_id string, guess int) error {
 	return nil
 }
 
+type gameStateResponse struct {
+	PlayerShips         []int
+	PlayerHits          []int
+	PlayerMisses        []int
+	PlayerLivingShips   LivingShips
+	OpponentHits        []int
+	OpponentMisses      []int
+	OpponentLivingShips LivingShips
+}
+
 func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
 	player, err := g.getPlayer(playerID)
 	if err != nil {
@@ -115,15 +125,13 @@ func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
 	playerLivingShips := NewLivingShips()
 	var opponentHits []int
 	var opponentMisses []int
-	var opponentShips []int
 	opponentLivingShips := NewLivingShips()
 
 	opp, err := g.getOpponent(playerID)
-	if err == nil { 
+	if err == nil {
 		opponentHits, opponentMisses = opp.getHitsAndMisses(player)
 		playerHits, playerMisses = player.getHitsAndMisses(opp)
 		playerLivingShips = player.getLivingShips(opp)
-		opponentShips = opp.Ships.getFlattenedCoords()
 		opponentLivingShips = opp.getLivingShips(player)
 	}
 
@@ -132,7 +140,6 @@ func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
 		PlayerHits:          playerHits,
 		PlayerMisses:        playerMisses,
 		PlayerLivingShips:   playerLivingShips,
-		OpponentShips:       opponentShips,
 		OpponentHits:        opponentHits,
 		OpponentMisses:      opponentMisses,
 		OpponentLivingShips: opponentLivingShips,

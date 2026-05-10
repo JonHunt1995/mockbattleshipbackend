@@ -89,16 +89,7 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type gameStateResponse struct {
-	PlayerShips         []int
-	PlayerHits          []int
-	PlayerMisses        []int
-	PlayerLivingShips   LivingShips
-	OpponentShips       []int
-	OpponentHits        []int
-	OpponentMisses      []int
-	OpponentLivingShips LivingShips
-}
+
 
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	playerID, err := app.readCookie(r, true)
