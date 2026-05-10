@@ -25,7 +25,8 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
-			app.notFoundResponse(w, r)
+			app.notFoundResponse(w, r, err)
+			return
 		}
 	}
 
@@ -43,6 +44,7 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 	game, err := app.getGame(gameID)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
+		return
 	}
 
 	game.mu.Lock()
@@ -105,7 +107,7 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
-			app.notFoundResponse(w, r)
+			app.notFoundResponse(w, r, err)
 			return
 		}
 	}
@@ -119,7 +121,7 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	app.logger.Info("This should have game data", "game", game)
 
 	if err != nil {
-		app.notFoundResponse(w, r)
+		app.notFoundResponse(w, r, err)
 		return
 	}
 
@@ -138,6 +140,7 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	gs, err := game.getGameState(player.Id)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
+		return
 	}
 	app.logger.Info("gameState", "Player", player, "Opponent", opponent)
 
@@ -179,12 +182,12 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	
+
 	gameID := r.PathValue("gameID")
 	if gameID == "" {
 		gameID, err = app.readCookie(r, false)
 		if err != nil {
-			app.notFoundResponse(w, r)
+			app.notFoundResponse(w, r, err)
 			return
 		}
 	}
@@ -225,5 +228,6 @@ func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.logger.Error("json encoding failed", "error", err.Error())
 		app.serverErrorResponse(w, r, err)
+		return
 	}
 }
