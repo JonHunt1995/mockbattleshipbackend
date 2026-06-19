@@ -101,6 +101,8 @@ func (g *Game) playTurn(player_id string, guess int) error {
 		return err
 	}
 
+	g.Turn++
+
 	return nil
 }
 

@@ -89,8 +89,6 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
-
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	playerID, err := app.readCookie(r, true)
 	gameID := r.PathValue("gameID")
@@ -142,7 +140,7 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type playerMove struct {
-	Guess int
+	Guess int `json: "Guess"`
 }
 
 func (pm *playerMove) getGuess() int {
@@ -162,7 +160,7 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 	// 	- will this pub/sub or how will this work? We could tell the FE to do a PRG
 	var move playerMove
 
-	err := app.readJSON(w, r, move)
+	err := app.readJSON(w, r, &move)
 	if err != nil {
 		app.handleDecodeError(w, err)
 		return
