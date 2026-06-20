@@ -97,11 +97,11 @@ func (g *Game) playTurn(player_id string, guess int) error {
 		return err
 	}
 
+	g.Turn++
+
 	if err := g.Players[g.Turn%2].AddGuess(guess); err != nil {
 		return err
 	}
-
-	g.Turn++
 
 	return nil
 }
