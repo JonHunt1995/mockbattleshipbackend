@@ -220,3 +220,50 @@ func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (app *application) postPollHandler(w http.ResponseWriter, r *http.Request) {
+	gameID := r.PathValue("gameID")
+	if gameID == "" {
+		app.notFoundResponse(w, r, nil)
+		return
+	}
+
+	turn, err := strconv.Atoi(r.PathValue("turn"))
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+
+	game, err := app.getGame(gameID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	game.mu.Lock()
+	defer game.mu.Unlock()
+
+	playerID, err := app.readCookie(r, true)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	gs, err := game.getGameState(playerID)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if turn == gs.Turn {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, gs, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+}
