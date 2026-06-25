@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -221,7 +222,7 @@ func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (app *application) postPollHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) pollHandler(w http.ResponseWriter, r *http.Request) {
 	gameID := r.PathValue("gameID")
 	if gameID == "" {
 		app.notFoundResponse(w, r, nil)
@@ -244,26 +245,11 @@ func (app *application) postPollHandler(w http.ResponseWriter, r *http.Request) 
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	playerID, err := app.readCookie(r, true)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	gs, err := game.getGameState(playerID)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-
-	if turn == gs.Turn {
+	if turn == game.Turn {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusOK, gs, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
+	// Client is not up to date, let's trigger a resync
+	w.WriteHeader(http.StatusOK)
 }

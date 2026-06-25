@@ -115,6 +115,7 @@ type gameStateResponse struct {
 	OpponentHits        []int
 	OpponentMisses      []int
 	OpponentLivingShips LivingShips
+	IsYourTurn          bool
 }
 
 func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
@@ -128,7 +129,15 @@ func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
 	playerLivingShips := NewLivingShips()
 	var opponentHits []int
 	var opponentMisses []int
+	var isYourTurn bool
 	opponentLivingShips := NewLivingShips()
+	playerNumber, fullGame := g.getPlayerNumber(playerID)
+
+	if fullGame && playerNumber - 1 == (g.Turn - 1) %2 {
+		isYourTurn = true
+	} else {
+		isYourTurn = false
+	}
 
 	opp, err := g.getOpponent(playerID)
 	if err == nil {
@@ -146,5 +155,6 @@ func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
 		OpponentHits:        opponentHits,
 		OpponentMisses:      opponentMisses,
 		OpponentLivingShips: opponentLivingShips,
+		IsYourTurn: isYourTurn,
 	}, nil
 }

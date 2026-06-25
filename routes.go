@@ -12,7 +12,7 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("POST /api/setup/{gameID}", app.setupGameHandler)
 	mux.HandleFunc("GET /api/play/{gameID}", app.getGameHandler)
 	mux.HandleFunc("POST /api/play/{gameID}", app.postGameHandler)
-	mux.HandleFunc("POST /api/poll/{gameID}/{turn}", app.postPollHandler)
+	mux.HandleFunc("GET /api/poll/{gameID}/{turn}", app.pollHandler)
 	mux.HandleFunc("GET /api/newgame", app.createNewGame)
 	mux.HandleFunc("GET /api/games", app.getActiveGames)
 
