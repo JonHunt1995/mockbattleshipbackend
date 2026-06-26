@@ -25,8 +25,13 @@ type application struct {
 }
 
 func main() {
+ 	port := os.Getenv("PORT")
+    if port == "" {
+        port = "4000" // Default for local development
+    }
+
 	cfg := config{
-		port: 4000,
+		port: port,
 		env:  "",
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -41,7 +46,7 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:              fmt.Sprintf(":%d", cfg.port),
+		Addr:              cfg.port,
 		Handler:           app.routes(),
 		IdleTimeout:       5 * time.Minute,
 		ReadTimeout:       5 * time.Second,
