@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,7 +12,7 @@ import (
 )
 
 type config struct {
-	port int
+	port string
 	env  string
 }
 
@@ -27,7 +26,7 @@ type application struct {
 func main() {
  	port := os.Getenv("PORT")
     if port == "" {
-        port = "4000" // Default for local development
+        port = ":4000" // Default for local development
     }
 
 	cfg := config{
@@ -57,7 +56,7 @@ func main() {
 
 	go func() {
 		logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
-		// For localhost only, get rid of this later!
+
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error(err.Error())
 			os.Exit(1)
