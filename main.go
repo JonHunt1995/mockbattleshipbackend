@@ -24,13 +24,13 @@ type application struct {
 }
 
 func main() {
- 	port := os.Getenv("PORT")
-    if port == "" {
-        port = ":4000" // Default for local development
-    }
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "4000" // Default for local development
+	}
 
 	cfg := config{
-		port: port,
+		port: ":" + port,
 		env:  "",
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
