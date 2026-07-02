@@ -13,7 +13,7 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("GET /api/play/{gameID}", app.getGameHandler)
 	mux.HandleFunc("POST /api/play/{gameID}", app.postGameHandler)
 	mux.HandleFunc("GET /api/poll/{gameID}/{turn}", app.pollHandler)
-	mux.HandleFunc("GET /api/newgame", app.createNewGame)
+	mux.HandleFunc("POST /api/newgame", app.createNewGame)
 	mux.HandleFunc("GET /api/games", app.getActiveGames)
 
 	c := cors.New(cors.Options{

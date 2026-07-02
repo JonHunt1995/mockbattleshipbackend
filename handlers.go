@@ -64,7 +64,7 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 }
 
 type createGameResponse struct {
-	InviteLink string
+	InviteLink string `json:"link"`
 }
 
 func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +141,7 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type playerMove struct {
-	Guess int `json: "Guess"`
+	Guess int `json:"Guess"`
 }
 
 func (pm *playerMove) getGuess() int {
@@ -234,7 +234,6 @@ func (app *application) pollHandler(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
 
 	game, err := app.getGame(gameID)
 	if err != nil {
