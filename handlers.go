@@ -80,7 +80,7 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteURL := fmt.Sprintf("%s/play/%s", domain, gameID)
+	inviteURL := fmt.Sprintf("%s/setup/%s", domain, gameID)
 
 	payload := &createGameResponse{InviteLink: inviteURL}
 
