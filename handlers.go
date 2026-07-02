@@ -69,7 +69,7 @@ type createGameResponse struct {
 
 func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 	// will have to update this in prod from localhost
-	link := "http://localhost:5173"
+	domain := "https://gentechbattleship.pages.dev"
 	gameID := uuid.New()
 	playerID := uuid.New()
 	app.setCookie(w, gameID, false)
@@ -80,7 +80,7 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteURL := fmt.Sprintf("%s/setup/%s", link, gameID)
+	inviteURL := fmt.Sprintf("%s/play/%s", domain, gameID)
 
 	payload := &createGameResponse{InviteLink: inviteURL}
 
