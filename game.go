@@ -81,7 +81,7 @@ func (g *Game) getOpponent(playerId string) (*Player, error) {
 	return g.Players[other], nil
 }
 
-func (g *Game) validateTurn(player_id string, guess int) error {
+func (g *Game) validateTurn(player_id string) error {
 	playersTurn := (g.Turn + 1) % 2
 	if g.Players[playersTurn].Id == player_id {
 		return nil
@@ -93,7 +93,7 @@ func (g *Game) validateTurn(player_id string, guess int) error {
 }
 
 func (g *Game) playTurn(player_id string, guess int) error {
-	if err := g.validateTurn(player_id, guess); err != nil {
+	if err := g.validateTurn(player_id); err != nil {
 		return err
 	}
 
@@ -116,6 +116,19 @@ type gameStateResponse struct {
 	OpponentMisses      []int
 	OpponentLivingShips LivingShips
 	IsYourTurn          bool
+	TurnNumber          int
+	Victor              int
+	GameIsReady         bool
+}
+
+func calculateVictoryScore(player, opponent LivingShips) int {
+	if !player.Battleship && !player.Carrier && !player.Cruiser && !player.Submarine {
+		return -1
+	} else if !opponent.Battleship && !opponent.Carrier && !opponent.Cruiser && !opponent.Submarine {
+		return 1
+	}
+
+	return 0
 }
 
 func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
@@ -133,7 +146,7 @@ func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
 	opponentLivingShips := NewLivingShips()
 	playerNumber, fullGame := g.getPlayerNumber(playerID)
 
-	if fullGame && playerNumber - 1 == (g.Turn - 1) %2 {
+	if fullGame && playerNumber-1 == (g.Turn-1)%2 {
 		isYourTurn = true
 	} else {
 		isYourTurn = false
@@ -147,6 +160,8 @@ func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
 		opponentLivingShips = opp.getLivingShips(player)
 	}
 
+	victoryScore := calculateVictoryScore(playerLivingShips, opponentLivingShips)
+
 	return &gameStateResponse{
 		PlayerShips:         playerShips,
 		PlayerHits:          playerHits,
@@ -155,6 +170,9 @@ func (g *Game) getGameState(playerID string) (*gameStateResponse, error) {
 		OpponentHits:        opponentHits,
 		OpponentMisses:      opponentMisses,
 		OpponentLivingShips: opponentLivingShips,
-		IsYourTurn: isYourTurn,
+		IsYourTurn:          isYourTurn,
+		TurnNumber:          g.Turn,
+		Victor:              victoryScore,
+		GameIsReady:         len(g.Players) == 2,
 	}, nil
 }
