@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -68,8 +69,11 @@ type createGameResponse struct {
 }
 
 func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
-	// will have to update this in prod from localhost
-	domain := "https://gentechbattleship.pages.dev"
+	hostName := r.Host
+	domain, _, err := net.SplitHostPort(hostName)
+	if err != nil {
+		domain = hostName
+	}
 	gameID := uuid.New()
 	playerID := uuid.New()
 	app.setCookie(w, gameID, false)
