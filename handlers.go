@@ -69,7 +69,7 @@ type createGameResponse struct {
 }
 
 func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
-	hostName := r.Header.Get("X-Forwarded_Host")
+	hostName := r.Header.Get("X-Original-Host")
 	if hostName == "" {
 		hostName = r.Host
 	}
