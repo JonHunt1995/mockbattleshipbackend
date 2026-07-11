@@ -69,7 +69,11 @@ type createGameResponse struct {
 }
 
 func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
-	hostName := r.Host
+	hostName := r.Header.Get("X-Forwarded_Host")
+	if hostName == "" {
+		hostName = r.Host
+	}
+
 	domain, _, err := net.SplitHostPort(hostName)
 	if err != nil {
 		domain = hostName
