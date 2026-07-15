@@ -35,13 +35,10 @@ func main() {
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	var players []*Player
 	app := &application{
 		config: cfg,
 		logger: logger,
-		games: map[string]*Game{
-			"onlygame": NewGame(players),
-		},
+		games:  map[string]*Game{},
 	}
 
 	srv := &http.Server{

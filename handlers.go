@@ -25,17 +25,14 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 	gameID := r.PathValue("gameID")
 	var err error
 	if gameID == "" {
-		gameID, err = app.readCookie(r, false)
-		if err != nil {
-			app.notFoundResponse(w, r, err)
-			return
-		}
+		app.notFoundResponse(w, r, err)
+		return
 	}
 
-	playerID, err := app.readCookie(r, true)
+	playerID, err := app.findUserSession(r)
 	if err != nil {
 		playerUUID := uuid.New()
-		app.setCookie(w, playerUUID, true)
+		app.setUserSession(w, playerUUID)
 		playerID = playerUUID.String()
 	}
 
@@ -79,9 +76,6 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 		domain = hostName
 	}
 	gameID := uuid.New()
-	playerID := uuid.New()
-	app.setCookie(w, gameID, false)
-	app.setCookie(w, playerID, true)
 
 	if err := app.setGame(gameID.String()); err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -99,15 +93,12 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
-	playerID, err := app.readCookie(r, true)
+	playerID, err := app.findUserSession(r)
 	gameID := r.PathValue("gameID")
 
 	if gameID == "" {
-		gameID, err = app.readCookie(r, false)
-		if err != nil {
-			app.notFoundResponse(w, r, err)
-			return
-		}
+		app.notFoundResponse(w, r, err)
+		return
 	}
 
 	if err != nil {
@@ -175,7 +166,7 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	playerID, err := app.readCookie(r, true)
+	playerID, err := app.findUserSession(r)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -183,11 +174,8 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 
 	gameID := r.PathValue("gameID")
 	if gameID == "" {
-		gameID, err = app.readCookie(r, false)
-		if err != nil {
-			app.notFoundResponse(w, r, err)
-			return
-		}
+		app.notFoundResponse(w, r, err)
+		return
 	}
 
 	game, err := app.getGame(gameID)

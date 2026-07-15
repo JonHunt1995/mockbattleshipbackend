@@ -126,13 +126,8 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data any, h
 }
 
 // Read cookie value or return an error
-func (app *application) readCookie(r *http.Request, isUser bool) (string, error) {
-	name := "game"
-	if isUser {
-		name = "user"
-	}
-
-	cookie, err := r.Cookie(name)
+func (app *application) findUserSession(r *http.Request) (string, error) {
+	cookie, err := r.Cookie("user")
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
 			return "", err
@@ -145,13 +140,9 @@ func (app *application) readCookie(r *http.Request, isUser bool) (string, error)
 }
 
 // Write cookie and return the cookie value
-func (app *application) setCookie(w http.ResponseWriter, id uuid.UUID, isUser bool) {
-	name := "game"
-	if isUser {
-		name = "user"
-	}
+func (app *application) setUserSession(w http.ResponseWriter, id uuid.UUID) {
 	cookie := http.Cookie{
-		Name:     name,
+		Name:     "user",
 		Value:    id.String(),
 		Path:     "/",
 		MaxAge:   3600 * 24,
@@ -164,16 +155,6 @@ func (app *application) setCookie(w http.ResponseWriter, id uuid.UUID, isUser bo
 }
 
 func (app *application) clearCookies(w http.ResponseWriter) {
-	gc := http.Cookie{
-		Name:     "game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteLaxMode,
-	}
-
 	uc := http.Cookie{
 		Name:     "user",
 		Value:    "",
@@ -184,7 +165,6 @@ func (app *application) clearCookies(w http.ResponseWriter) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	http.SetCookie(w, &gc)
 	http.SetCookie(w, &uc)
 }
 
