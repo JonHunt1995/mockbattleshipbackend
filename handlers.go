@@ -38,8 +38,6 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 
 	player := NewPlayer(data, playerID)
 
-	app.logger.Info("received ship placement request", "data", data)
-
 	game, err := app.getGame(gameID)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
@@ -107,7 +105,6 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	game, err := app.getGame(gameID)
-	app.logger.Info("This should have game data", "game", game)
 
 	if err != nil {
 		app.notFoundResponse(w, r, err)
@@ -123,15 +120,11 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	opponent, err := game.getOpponent(playerID)
-	app.logger.Info("This should be either opponents data or nil", "opponent", opponent, "error", err)
-
 	gs, err := game.getGameState(player.Id)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	app.logger.Info("gameState", "Player", player, "Opponent", opponent)
 
 	if err := app.writeJSON(w, http.StatusOK, gs, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -148,7 +141,7 @@ func (pm *playerMove) getGuess() int {
 }
 
 func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: this will be the handler that actually deals with game move logic
+	// this will be the handler that actually deals with game move logic
 	// by receiving moves from the frontend.
 	// the backend will first:
 	// - check if move is valid
@@ -231,6 +224,11 @@ func (app *application) pollHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	numPlayers, err := strconv.Atoi(r.PathValue("numPlayers"))
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
 	game, err := app.getGame(gameID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -240,7 +238,7 @@ func (app *application) pollHandler(w http.ResponseWriter, r *http.Request) {
 	game.mu.Lock()
 	defer game.mu.Unlock()
 
-	if turn == game.Turn {
+	if turn == game.Turn && numPlayers == game.getPlayerCount() {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
