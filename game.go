@@ -124,7 +124,7 @@ type gameStateResponse struct {
 func calculateVictoryScore(player, opponent LivingShips) int {
 	if !player.Battleship && !player.Carrier && !player.Cruiser && !player.Submarine && !player.Destroyer {
 		return -1
-	} else if !opponent.Battleship && !opponent.Carrier && !opponent.Cruiser && !opponent.Submarine && !player.Destroyer {
+	} else if !opponent.Battleship && !opponent.Carrier && !opponent.Cruiser && !opponent.Submarine && !opponent.Destroyer {
 		return 1
 	}
 
