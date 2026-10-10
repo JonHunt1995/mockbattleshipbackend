@@ -1,9 +1,9 @@
 steps:
   # ----------------------------------------------------------------------------
   # Step 1: Run unit and race tests
-  # Fails the build early if tests do not pass on the PR branch
+  # Uses official golang:1.26 (Debian based) which has gcc for CGO -race support
   # ----------------------------------------------------------------------------
-  - name: 'golang:1.26-alpine'
+  - name: 'golang:1.26'
     id: 'Test'
     entrypoint: 'go'
     args: ['test', '-race', '-v', './...']
@@ -53,8 +53,7 @@ steps:
 
 # ------------------------------------------------------------------------------
 # Default substitutions
-# These defaults allow local testing via `gcloud builds submit` and
-# are overridden by Cloud Build when triggered from a GitHub Pull Request
+# Note: $_PR_NUMBER is automatically provided by Cloud Build for Pull Requests
 # ------------------------------------------------------------------------------
 substitutions:
   _AR_HOSTNAME: 'us-central1-docker.pkg.dev'
@@ -62,7 +61,6 @@ substitutions:
   _AR_REPOSITORY: 'cloud-run-source-deploy'
   _DEPLOY_REGION: 'us-central1'
   _SERVICE_NAME: 'battleship-backend'
-  _PR_NUMBER: 'manual'
 
 options:
   logging: 'CLOUD_LOGGING_ONLY'
