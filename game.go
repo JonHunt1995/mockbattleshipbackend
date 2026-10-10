@@ -23,6 +23,15 @@ func (g *Game) getPlayerCount() int {
 }
 
 func (g *Game) addPlayer(p *Player) error {
+	for _, existing := range g.Players {
+		if existing.Id == p.Id {
+			return &badRequest{
+				status: 400,
+				msg:    "Player is already in this game",
+			}
+		}
+	}
+
 	if g.getPlayerCount() >= 2 {
 		return &badRequest{
 			status: 400,
@@ -32,6 +41,32 @@ func (g *Game) addPlayer(p *Player) error {
 	g.Players = append(g.Players, p)
 
 	return nil
+}
+
+type ClonedGame struct {
+	Players []*Player `json:"Players"`
+	Turn    int       `json:"Turn"`
+}
+
+func (g *Game) Clone() *ClonedGame {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	playersCopy := make([]*Player, len(g.Players))
+	for i, p := range g.Players {
+		guessesCopy := make([]int, len(p.Guesses))
+		copy(guessesCopy, p.Guesses)
+		playersCopy[i] = &Player{
+			Ships:   p.Ships,
+			Id:      p.Id,
+			Guesses: guessesCopy,
+		}
+	}
+
+	return &ClonedGame{
+		Players: playersCopy,
+		Turn:    g.Turn,
+	}
 }
 
 func (g *Game) getPlayerNumber(player_id string) (int, bool) {

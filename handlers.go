@@ -45,9 +45,10 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	game.mu.Lock()
-	defer game.mu.Unlock()
+	err = game.addPlayer(player)
+	game.mu.Unlock()
 
-	if err := game.addPlayer(player); err != nil {
+	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
@@ -112,15 +113,16 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	game.mu.Lock()
-	defer game.mu.Unlock()
-
 	player, err := game.getPlayer(playerID)
 	if err != nil {
+		game.mu.Unlock()
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
 	gs, err := game.getGameState(player.Id)
+	game.mu.Unlock()
+
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -178,15 +180,16 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	game.mu.Lock()
-	defer game.mu.Unlock()
-
 	err = game.playTurn(playerID, move.getGuess())
 	if err != nil {
+		game.mu.Unlock()
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
 	gs, err := game.getGameState(playerID)
+	game.mu.Unlock()
+
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -200,10 +203,19 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
-	app.mu.Lock()
-	defer app.mu.Unlock()
+	app.mu.RLock()
+	gamePointers := make(map[string]*Game, len(app.games))
+	for id, g := range app.games {
+		gamePointers[id] = g
+	}
+	app.mu.RUnlock()
 
-	err := app.writeJSON(w, http.StatusOK, app.games, nil)
+	snapshots := make(map[string]*ClonedGame, len(gamePointers))
+	for id, g := range gamePointers {
+		snapshots[id] = g.Clone()
+	}
+
+	err := app.writeJSON(w, http.StatusOK, snapshots, nil)
 	if err != nil {
 		app.logger.Error("json encoding failed", "error", err.Error())
 		app.serverErrorResponse(w, r, err)
@@ -236,9 +248,11 @@ func (app *application) pollHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	game.mu.Lock()
-	defer game.mu.Unlock()
+	currentTurn := game.Turn
+	playerCount := game.getPlayerCount()
+	game.mu.Unlock()
 
-	if turn == game.Turn && numPlayers == game.getPlayerCount() {
+	if turn == currentTurn && numPlayers == playerCount {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}

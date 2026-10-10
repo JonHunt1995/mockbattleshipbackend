@@ -32,7 +32,7 @@ func TestGame_ValidateTurn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			game.Turn = tt.setTurn
-			err := game.validateTurn(tt.playerID, 0)
+			err := game.validateTurn(tt.playerID)
 
 			// 1. Check if the error presence matches expectations
 			if (err != nil) != tt.wantErr {

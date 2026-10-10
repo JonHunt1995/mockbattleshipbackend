@@ -1,0 +1,73 @@
+steps:
+  # ----------------------------------------------------------------------------
+  # Step 1: Run unit and race tests
+  # Fails the build early if tests do not pass on the PR branch
+  # ----------------------------------------------------------------------------
+  - name: 'golang:1.26-alpine'
+    id: 'Test'
+    entrypoint: 'go'
+    args: ['test', '-race', '-v', './...']
+
+  # ----------------------------------------------------------------------------
+  # Step 2: Build the container image
+  # Uses the Dockerfile static multi-stage build
+  # ----------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build'
+    args:
+      - 'build'
+      - '--no-cache'
+      - '-t'
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/preview-$_PR_NUMBER:$COMMIT_SHA'
+      - '.'
+      - '-f'
+      - 'Dockerfile'
+
+  # ----------------------------------------------------------------------------
+  # Step 3: Push image to Google Artifact Registry
+  # ----------------------------------------------------------------------------
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push'
+    args:
+      - 'push'
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/preview-$_PR_NUMBER:$COMMIT_SHA'
+
+  # ----------------------------------------------------------------------------
+  # Step 4: Deploy ephemeral preview service to Cloud Run
+  # Deploys as service named pr-<PR_NUMBER>
+  # ----------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Deploy-Preview'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'pr-$_PR_NUMBER'
+      - '--platform=managed'
+      - '--image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/preview-$_PR_NUMBER:$COMMIT_SHA'
+      - '--labels=managed-by=gcp-cloud-build,commit-sha=$COMMIT_SHA,pr-number=$_PR_NUMBER'
+      - '--region=$_DEPLOY_REGION'
+      - '--max-instances=1'
+      - '--allow-unauthenticated'
+      - '--quiet'
+
+# ------------------------------------------------------------------------------
+# Default substitutions
+# These defaults allow local testing via `gcloud builds submit` and
+# are overridden by Cloud Build when triggered from a GitHub Pull Request
+# ------------------------------------------------------------------------------
+substitutions:
+  _AR_HOSTNAME: 'us-central1-docker.pkg.dev'
+  _AR_PROJECT_ID: 'gentechbattleshipbackend'
+  _AR_REPOSITORY: 'cloud-run-source-deploy'
+  _DEPLOY_REGION: 'us-central1'
+  _SERVICE_NAME: 'battleship-backend'
+  _PR_NUMBER: 'manual'
+
+options:
+  logging: 'CLOUD_LOGGING_ONLY'
+  substitutionOption: 'ALLOW_LOOSE'
+
+tags:
+  - 'gcp-cloud-build-deploy-cloud-run'
+  - 'pr-preview'

@@ -20,7 +20,7 @@ type application struct {
 	config config
 	logger *slog.Logger
 	games  map[string]*Game
-	mu     sync.Mutex
+	mu     sync.RWMutex
 }
 
 func main() {

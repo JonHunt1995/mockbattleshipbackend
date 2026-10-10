@@ -186,8 +186,8 @@ func (app *application) setGame(gameID string) error {
 }
 
 func (app *application) getGame(gameID string) (*Game, error) {
-	app.mu.Lock()
-	defer app.mu.Unlock()
+	app.mu.RLock()
+	defer app.mu.RUnlock()
 
 	game, ok := app.games[gameID]
 
