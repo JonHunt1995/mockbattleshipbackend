@@ -1,9 +1,11 @@
-package main
+package ship
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 )
+
+var ErrInvalidShipPlacement = errors.New("The uploaded ships are not properly placed")
 
 type ShipCoordinates struct {
 	Carrier    []int `json:"Carrier"`
@@ -13,7 +15,25 @@ type ShipCoordinates struct {
 	Destroyer  []int `json:"Destroyer"`
 }
 
-func (sc *ShipCoordinates) getFlattenedCoords() []int {
+type LivingShips struct {
+	Carrier    bool
+	Battleship bool
+	Cruiser    bool
+	Submarine  bool
+	Destroyer  bool
+}
+
+func NewLivingShips() LivingShips {
+	return LivingShips{
+		Carrier:    true,
+		Battleship: true,
+		Cruiser:    true,
+		Submarine:  true,
+		Destroyer:  true,
+	}
+}
+
+func (sc *ShipCoordinates) GetFlattenedCoords() []int {
 	const lengthOfAllShips = 17
 	flattened := make([]int, 0, lengthOfAllShips)
 
@@ -26,20 +46,20 @@ func (sc *ShipCoordinates) getFlattenedCoords() []int {
 	return flattened
 }
 
-func (sc *ShipCoordinates) areValid() error {
+func (sc *ShipCoordinates) AreValid() error {
 	if validShipPlacement(sc.Carrier, "carrier") &&
 		validShipPlacement(sc.Battleship, "battleship") &&
 		validShipPlacement(sc.Cruiser, "cruiser") &&
 		validShipPlacement(sc.Submarine, "submarine") &&
 		validShipPlacement(sc.Destroyer, "destroyer") &&
-		noOverlaps(sc.getFlattenedCoords()) {
+		noOverlaps(sc.GetFlattenedCoords()) {
 		return nil
 	}
 
-	return fmt.Errorf("The uploaded ships are not properly placed")
+	return ErrInvalidShipPlacement
 }
 
-func validShipPlacement(ship []int, name string) bool {
+func validShipPlacement(s []int, name string) bool {
 	// Check if length of ship is correct.
 	// Check if horizontal or vertical (diff should be
 	// 1 or 10 respectively).
@@ -59,24 +79,24 @@ func validShipPlacement(ship []int, name string) bool {
 
 	name = strings.ToLower(name)
 
-	if len(ship) < 2 || lengthOfEachShip[name] != len(ship) {
+	if len(s) < 2 || lengthOfEachShip[name] != len(s) {
 		return false
 	}
 
-	diff := ship[1] - ship[0]
+	diff := s[1] - s[0]
 
 	if diff != 1 && diff != 10 {
 		return false
 	}
 
-	for i, idx := range ship {
+	for i, idx := range s {
 		if 0 > idx || idx >= 100 {
 			return false
 		}
-		if i != 0 && idx-ship[i-1] != diff {
+		if i != 0 && idx-s[i-1] != diff {
 			return false
 		}
-		if diff == 1 && idx/10 != ship[0]/10 {
+		if diff == 1 && idx/10 != s[0]/10 {
 			return false
 		}
 	}

@@ -1,8 +1,11 @@
-package main
+package player
 
 import (
-	"reflect"
+	"errors"
+	"slices"
 	"testing"
+
+	"github.com/JonHunt1995/mockbattleshipbackend/ship"
 )
 
 func TestPlayer_Guesses(t *testing.T) {
@@ -12,34 +15,32 @@ func TestPlayer_Guesses(t *testing.T) {
 		Guesses: []int{10, 20},
 	}
 
-	// Table for validateGuess and AddGuess
 	tests := []struct {
 		name      string
 		guess     int
 		wantError bool
-		errorMsg  string
+		targetErr error
 	}{
-		{"Valid Guess", 30, false, ""},
-		{"Valid Boundary 0", 0, false, ""},
-		{"Valid Boundary 99", 99, false, ""},
-		{"Error: Negative", -1, true, "This guess is out of bounds from the grid"},
-		{"Error: Too High", 100, true, "This guess is out of bounds from the grid"},
-		{"Error: Already Played", 10, true, "You already played this"},
+		{"Valid Guess", 30, false, nil},
+		{"Valid Boundary 0", 0, false, nil},
+		{"Valid Boundary 99", 99, false, nil},
+		{"Error: Negative", -1, true, ErrOutOfBounds},
+		{"Error: Too High", 100, true, ErrOutOfBounds},
+		{"Error: Already Played", 10, true, ErrAlreadyPlayed},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 1. Test validateGuess
-			err := p.validateGuess(tt.guess)
+			// 1. Test ValidateGuess
+			err := p.ValidateGuess(tt.guess)
 			if (err != nil) != tt.wantError {
-				t.Errorf("validateGuess(%d) error = %v, wantError %v", tt.guess, err, tt.wantError)
+				t.Errorf("ValidateGuess(%d) error = %v, wantError %v", tt.guess, err, tt.wantError)
 			}
-			if tt.wantError && err != nil && err.Error() != tt.errorMsg {
-				t.Errorf("validateGuess() error message = %q, want %q", err.Error(), tt.errorMsg)
+			if tt.wantError && !errors.Is(err, tt.targetErr) {
+				t.Errorf("ValidateGuess(%d) error = %v, want %v", tt.guess, err, tt.targetErr)
 			}
 
 			// 2. Test AddGuess
-			// We only call AddGuess if we want to test the success/failure flow
 			initialCount := len(p.Guesses)
 			err = p.AddGuess(tt.guess)
 
@@ -61,14 +62,14 @@ func TestPlayer_GetHitsAndMisses(t *testing.T) {
 	tests := []struct {
 		name       string
 		myGuesses  []int
-		otherShips ShipCoordinates
+		otherShips ship.ShipCoordinates
 		wantHits   []int
 		wantMisses []int
 	}{
 		{
 			name:      "All Misses",
 			myGuesses: []int{1, 2, 3},
-			otherShips: ShipCoordinates{
+			otherShips: ship.ShipCoordinates{
 				Destroyer: []int{50, 60},
 			},
 			wantHits:   nil,
@@ -77,7 +78,7 @@ func TestPlayer_GetHitsAndMisses(t *testing.T) {
 		{
 			name:      "All Hits",
 			myGuesses: []int{50, 60},
-			otherShips: ShipCoordinates{
+			otherShips: ship.ShipCoordinates{
 				Destroyer: []int{50, 60},
 			},
 			wantHits:   []int{50, 60},
@@ -86,7 +87,7 @@ func TestPlayer_GetHitsAndMisses(t *testing.T) {
 		{
 			name:      "Mixed Hits and Misses",
 			myGuesses: []int{10, 11, 12},
-			otherShips: ShipCoordinates{
+			otherShips: ship.ShipCoordinates{
 				Cruiser: []int{11, 21, 31},
 			},
 			wantHits:   []int{11},
@@ -95,7 +96,7 @@ func TestPlayer_GetHitsAndMisses(t *testing.T) {
 		{
 			name:       "Empty Guesses",
 			myGuesses:  []int{},
-			otherShips: ShipCoordinates{Destroyer: []int{1, 2}},
+			otherShips: ship.ShipCoordinates{Destroyer: []int{1, 2}},
 			wantHits:   nil,
 			wantMisses: nil,
 		},
@@ -106,13 +107,13 @@ func TestPlayer_GetHitsAndMisses(t *testing.T) {
 			p := &Player{Guesses: tt.myGuesses}
 			other := &Player{Ships: tt.otherShips}
 
-			gotHits, gotMisses := p.getHitsAndMisses(other)
+			gotHits, gotMisses := p.GetHitsAndMisses(other)
 
-			if !reflect.DeepEqual(gotHits, tt.wantHits) {
-				t.Errorf("getHitsAndMisses() gotHits = %v, want %v", gotHits, tt.wantHits)
+			if !slices.Equal(gotHits, tt.wantHits) {
+				t.Errorf("GetHitsAndMisses() gotHits = %v, want %v", gotHits, tt.wantHits)
 			}
-			if !reflect.DeepEqual(gotMisses, tt.wantMisses) {
-				t.Errorf("getHitsAndMisses() gotMisses = %v, want %v", gotMisses, tt.wantMisses)
+			if !slices.Equal(gotMisses, tt.wantMisses) {
+				t.Errorf("GetHitsAndMisses() gotMisses = %v, want %v", gotMisses, tt.wantMisses)
 			}
 		})
 	}

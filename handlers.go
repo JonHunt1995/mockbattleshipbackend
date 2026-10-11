@@ -7,17 +7,20 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+
+	"github.com/JonHunt1995/mockbattleshipbackend/player"
+	"github.com/JonHunt1995/mockbattleshipbackend/ship"
 )
 
 func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request) {
-	var data ShipCoordinates
+	var data ship.ShipCoordinates
 
 	if err := app.readJSON(w, r, &data); err != nil {
 		app.handleDecodeError(w, err)
 		return
 	}
 
-	if err := data.areValid(); err != nil {
+	if err := data.AreValid(); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
@@ -36,17 +39,17 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 		playerID = playerUUID.String()
 	}
 
-	player := NewPlayer(data, playerID)
+	p := player.NewPlayer(data, playerID)
 
-	game, err := app.getGame(gameID)
+	g, err := app.store.Get(r.Context(), gameID)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	game.mu.Lock()
-	err = game.addPlayer(player)
-	game.mu.Unlock()
+	g.Mu.Lock()
+	err = g.AddPlayer(p)
+	g.Mu.Unlock()
 
 	if err != nil {
 		app.badRequestResponse(w, r, err)
@@ -76,7 +79,7 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 	}
 	gameID := uuid.New()
 
-	if err := app.setGame(gameID.String()); err != nil {
+	if err := app.store.Create(r.Context(), gameID.String()); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -105,23 +108,23 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game, err := app.getGame(gameID)
+	g, err := app.store.Get(r.Context(), gameID)
 
 	if err != nil {
 		app.notFoundResponse(w, r, err)
 		return
 	}
 
-	game.mu.Lock()
-	player, err := game.getPlayer(playerID)
+	g.Mu.Lock()
+	p, err := g.GetPlayer(playerID)
 	if err != nil {
-		game.mu.Unlock()
+		g.Mu.Unlock()
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	gs, err := game.getGameState(player.Id)
-	game.mu.Unlock()
+	gs, err := g.GetGameState(p.Id)
+	g.Mu.Unlock()
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -173,22 +176,22 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	game, err := app.getGame(gameID)
+	g, err := app.store.Get(r.Context(), gameID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	game.mu.Lock()
-	err = game.playTurn(playerID, move.getGuess())
+	g.Mu.Lock()
+	err = g.PlayTurn(playerID, move.getGuess())
 	if err != nil {
-		game.mu.Unlock()
+		g.Mu.Unlock()
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	gs, err := game.getGameState(playerID)
-	game.mu.Unlock()
+	gs, err := g.GetGameState(playerID)
+	g.Mu.Unlock()
 
 	if err != nil {
 		app.badRequestResponse(w, r, err)
@@ -202,22 +205,14 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
-	app.mu.RLock()
-	gamePointers := make(map[string]*Game, len(app.games))
-	for id, g := range app.games {
-		gamePointers[id] = g
-	}
-	app.mu.RUnlock()
-
-	snapshots := make(map[string]*ClonedGame, len(gamePointers))
-	for id, g := range gamePointers {
-		snapshots[id] = g.Clone()
-	}
-
-	err := app.writeJSON(w, http.StatusOK, snapshots, nil)
+func (app *application) getLobbyHandler(w http.ResponseWriter, r *http.Request) {
+	games, err := app.store.ListJoinable(r.Context())
 	if err != nil {
-		app.logger.Error("json encoding failed", "error", err.Error())
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	if err := app.writeJSON(w, http.StatusOK, games, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -241,16 +236,16 @@ func (app *application) pollHandler(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	game, err := app.getGame(gameID)
+	g, err := app.store.Get(r.Context(), gameID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	game.mu.Lock()
-	currentTurn := game.Turn
-	playerCount := game.getPlayerCount()
-	game.mu.Unlock()
+	g.Mu.Lock()
+	currentTurn := g.Turn
+	playerCount := g.GetPlayerCount()
+	g.Mu.Unlock()
 
 	if turn == currentTurn && numPlayers == playerCount {
 		w.WriteHeader(http.StatusNotModified)

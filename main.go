@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
+
+	"github.com/JonHunt1995/mockbattleshipbackend/store"
 )
 
 type config struct {
@@ -19,8 +20,7 @@ type config struct {
 type application struct {
 	config config
 	logger *slog.Logger
-	games  map[string]*Game
-	mu     sync.RWMutex
+	store  store.GameStore
 }
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 	app := &application{
 		config: cfg,
 		logger: logger,
-		games:  map[string]*Game{},
+		store:  store.NewMemGameStore(),
 	}
 
 	srv := &http.Server{

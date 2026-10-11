@@ -1,16 +1,22 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
+
+	"github.com/JonHunt1995/mockbattleshipbackend/game"
+	"github.com/JonHunt1995/mockbattleshipbackend/player"
+	"github.com/JonHunt1995/mockbattleshipbackend/ship"
+	"github.com/JonHunt1995/mockbattleshipbackend/store"
 )
 
-func createTestGame(p1ID, p2ID string) *Game {
-	p1 := NewPlayer(ShipCoordinates{
+func createTestGame(p1ID, p2ID string) *game.Game {
+	p1 := player.NewPlayer(ship.ShipCoordinates{
 		Carrier:    []int{0, 1, 2, 3, 4},
 		Battleship: []int{10, 20, 30, 40},
 		Cruiser:    []int{50, 51, 52},
@@ -18,7 +24,7 @@ func createTestGame(p1ID, p2ID string) *Game {
 		Destroyer:  []int{70, 71},
 	}, p1ID)
 
-	p2 := NewPlayer(ShipCoordinates{
+	p2 := player.NewPlayer(ship.ShipCoordinates{
 		Carrier:    []int{0, 1, 2, 3, 4},
 		Battleship: []int{10, 20, 30, 40},
 		Cruiser:    []int{50, 51, 52},
@@ -26,13 +32,13 @@ func createTestGame(p1ID, p2ID string) *Game {
 		Destroyer:  []int{70, 71},
 	}, p2ID)
 
-	return NewGame([]*Player{p1, p2})
+	return game.NewGame([]*player.Player{p1, p2})
 }
 
 func TestConcurrentGame_PlayTurnAndState(t *testing.T) {
 	p1ID := "player-1"
 	p2ID := "player-2"
-	game := createTestGame(p1ID, p2ID)
+	g := createTestGame(p1ID, p2ID)
 
 	var wg sync.WaitGroup
 	iterations := 20
@@ -47,9 +53,9 @@ func TestConcurrentGame_PlayTurnAndState(t *testing.T) {
 			case <-stopReader:
 				return
 			default:
-				game.mu.Lock()
-				_, _ = game.getGameState(p1ID)
-				game.mu.Unlock()
+				g.Mu.Lock()
+				_, _ = g.GetGameState(p1ID)
+				g.Mu.Unlock()
 			}
 		}
 	}()
@@ -62,25 +68,51 @@ func TestConcurrentGame_PlayTurnAndState(t *testing.T) {
 		}
 		guess := (i * 2) % 100
 
-		game.mu.Lock()
-		_ = game.playTurn(playerID, guess)
-		game.mu.Unlock()
+		g.Mu.Lock()
+		_ = g.PlayTurn(playerID, guess)
+		g.Mu.Unlock()
 	}
 
 	close(stopReader)
 	wg.Wait()
 }
 
-func TestConcurrentApp_GetActiveGamesRace(t *testing.T) {
+func TestConcurrentApp_LobbyRace(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	app := &application{
+		config: config{port: ":4000"},
 		logger: logger,
-		games:  map[string]*Game{},
+		store:  store.NewMemGameStore(),
 	}
 
 	gameID := "test-game-1"
-	game := createTestGame("player-1", "player-2")
-	app.games[gameID] = game
+	if err := app.store.Create(context.Background(), gameID); err != nil {
+		t.Fatalf("failed to create game: %v", err)
+	}
+
+	g, err := app.store.Get(context.Background(), gameID)
+	if err != nil {
+		t.Fatalf("failed to get game: %v", err)
+	}
+
+	p1 := player.NewPlayer(ship.ShipCoordinates{
+		Carrier:    []int{0, 1, 2, 3, 4},
+		Battleship: []int{10, 20, 30, 40},
+		Cruiser:    []int{50, 51, 52},
+		Submarine:  []int{60, 61, 62},
+		Destroyer:  []int{70, 71},
+	}, "player-1")
+
+	p2 := player.NewPlayer(ship.ShipCoordinates{
+		Carrier:    []int{0, 1, 2, 3, 4},
+		Battleship: []int{10, 20, 30, 40},
+		Cruiser:    []int{50, 51, 52},
+		Submarine:  []int{60, 61, 62},
+		Destroyer:  []int{70, 71},
+	}, "player-2")
+
+	_ = g.AddPlayer(p1)
+	_ = g.AddPlayer(p2)
 
 	var readersWg sync.WaitGroup
 	var writersWg sync.WaitGroup
@@ -96,27 +128,27 @@ func TestConcurrentApp_GetActiveGamesRace(t *testing.T) {
 			case <-stopSignal:
 				return
 			default:
-				game.mu.Lock()
+				g.Mu.Lock()
 				playerID := "player-1"
-				if game.Turn%2 == 0 {
+				if g.Turn%2 == 0 {
 					playerID = "player-2"
 				}
-				_ = game.playTurn(playerID, guess%100)
+				_ = g.PlayTurn(playerID, guess%100)
 				guess++
-				game.mu.Unlock()
+				g.Mu.Unlock()
 			}
 		}
 	}()
 
-	// Goroutines hitting getActiveGames (which calls json.Marshal on app.games)
+	// Goroutines hitting getLobbyHandler (which calls ListJoinable)
 	for i := 0; i < 5; i++ {
 		readersWg.Add(1)
 		go func() {
 			defer readersWg.Done()
 			for j := 0; j < 50; j++ {
-				req := httptest.NewRequest(http.MethodGet, "/api/games", nil)
+				req := httptest.NewRequest(http.MethodGet, "/api/lobby", nil)
 				rec := httptest.NewRecorder()
-				app.getActiveGames(rec, req)
+				app.getLobbyHandler(rec, req)
 			}
 		}()
 	}
@@ -127,7 +159,7 @@ func TestConcurrentApp_GetActiveGamesRace(t *testing.T) {
 }
 
 func BenchmarkGame_PlayTurn(b *testing.B) {
-	game := createTestGame("player-1", "player-2")
+	g := createTestGame("player-1", "player-2")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -136,19 +168,19 @@ func BenchmarkGame_PlayTurn(b *testing.B) {
 			playerID = "player-2"
 		}
 		guess := (i % 99)
-		game.mu.Lock()
-		_ = game.playTurn(playerID, guess)
-		game.mu.Unlock()
+		g.Mu.Lock()
+		_ = g.PlayTurn(playerID, guess)
+		g.Mu.Unlock()
 	}
 }
 
 func BenchmarkGame_GetGameState(b *testing.B) {
-	game := createTestGame("player-1", "player-2")
+	g := createTestGame("player-1", "player-2")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		game.mu.Lock()
-		_, _ = game.getGameState("player-1")
-		game.mu.Unlock()
+		g.Mu.Lock()
+		_, _ = g.GetGameState("player-1")
+		g.Mu.Unlock()
 	}
 }

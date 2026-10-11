@@ -120,9 +120,8 @@ func (app *application) writeJSON(w http.ResponseWriter, status int, data any, h
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	w.Write(payload)
-	// Success!
-	return nil
+	_, err = w.Write(payload)
+	return err
 }
 
 // Read cookie value or return an error
@@ -152,48 +151,4 @@ func (app *application) setUserSession(w http.ResponseWriter, id uuid.UUID) {
 	}
 
 	http.SetCookie(w, &cookie)
-}
-
-func (app *application) clearCookies(w http.ResponseWriter) {
-	uc := http.Cookie{
-		Name:     "user",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteLaxMode,
-	}
-
-	http.SetCookie(w, &uc)
-}
-
-func (app *application) setGame(gameID string) error {
-	app.mu.Lock()
-	defer app.mu.Unlock()
-
-	var players []*Player
-
-	if _, ok := app.games[gameID]; ok {
-		return fmt.Errorf("game %q already exists", gameID)
-	}
-
-	game := NewGame(players)
-
-	app.games[gameID] = game
-
-	return nil
-}
-
-func (app *application) getGame(gameID string) (*Game, error) {
-	app.mu.RLock()
-	defer app.mu.RUnlock()
-
-	game, ok := app.games[gameID]
-
-	if !ok {
-		return nil, fmt.Errorf("game %q not found", gameID)
-	}
-
-	return game, nil
 }
