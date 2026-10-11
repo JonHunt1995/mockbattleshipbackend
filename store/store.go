@@ -63,7 +63,7 @@ func (s *MemGameStore) ListJoinable(ctx context.Context) ([]LobbyGame, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var result []LobbyGame
+	result := make([]LobbyGame, 0)
 
 	for id, g := range s.games {
 		g.Mu.Lock()
@@ -71,10 +71,6 @@ func (s *MemGameStore) ListJoinable(ctx context.Context) ([]LobbyGame, error) {
 			result = append(result, LobbyGame{ID: id, PlayerCount: g.GetPlayerCount()})
 		}
 		g.Mu.Unlock()
-	}
-
-	if len(result) == 0 {
-		return nil, errors.New("No games available to join")
 	}
 
 	return result, nil

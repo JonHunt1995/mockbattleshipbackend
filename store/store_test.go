@@ -41,10 +41,13 @@ func TestMemGameStore_ListJoinable(t *testing.T) {
 	s := NewMemGameStore()
 	ctx := context.Background()
 
-	// Empty store
-	_, err := s.ListJoinable(ctx)
-	if err == nil {
-		t.Fatalf("expected error when no games available, got nil")
+	// Empty store returns empty slice and nil error
+	lobby, err := s.ListJoinable(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error when no games available: %v", err)
+	}
+	if len(lobby) != 0 {
+		t.Fatalf("expected 0 games in lobby, got %d", len(lobby))
 	}
 
 	// Create a game (0 players -> joinable)
@@ -52,7 +55,7 @@ func TestMemGameStore_ListJoinable(t *testing.T) {
 		t.Fatalf("unexpected error creating game-1: %v", err)
 	}
 
-	lobby, err := s.ListJoinable(ctx)
+	lobby, err = s.ListJoinable(ctx)
 	if err != nil {
 		t.Fatalf("unexpected error listing joinable games: %v", err)
 	}
@@ -72,9 +75,12 @@ func TestMemGameStore_ListJoinable(t *testing.T) {
 	g.Players = append(g.Players, &player.Player{Id: "p1"}, &player.Player{Id: "p2"})
 	g.Mu.Unlock()
 
-	_, err = s.ListJoinable(ctx)
-	if err == nil {
-		t.Fatalf("expected error when all games are full, got nil")
+	lobby, err = s.ListJoinable(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error when all games are full: %v", err)
+	}
+	if len(lobby) != 0 {
+		t.Fatalf("expected 0 games when all full, got %d", len(lobby))
 	}
 
 	// Create a second joinable game
