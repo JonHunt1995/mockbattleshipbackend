@@ -126,7 +126,7 @@ func TestConcurrentApp_LobbyRace(t *testing.T) {
 			default:
 				g.Mu.Lock()
 				playerID := "player-1"
-				if g.Turn%2 == 0 {
+				if g.GetTurnNumber()%2 == 0 {
 					playerID = "player-2"
 				}
 				_ = g.PlayTurn(playerID, guess%100)
@@ -155,8 +155,8 @@ func TestConcurrentApp_LobbyRace(t *testing.T) {
 func BenchmarkGame_PlayTurn(b *testing.B) {
 	g := createTestGame("player-1", "player-2")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	i := 0
+	for b.Loop() {
 		playerID := "player-1"
 		if i%2 == 1 {
 			playerID = "player-2"
@@ -165,14 +165,14 @@ func BenchmarkGame_PlayTurn(b *testing.B) {
 		g.Mu.Lock()
 		_ = g.PlayTurn(playerID, guess)
 		g.Mu.Unlock()
+		i++
 	}
 }
 
 func BenchmarkGame_GetGameState(b *testing.B) {
 	g := createTestGame("player-1", "player-2")
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		g.Mu.Lock()
 		_, _ = g.GetGameState("player-1")
 		g.Mu.Unlock()

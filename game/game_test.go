@@ -34,7 +34,15 @@ func TestGame_ValidateTurn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g.Turn = tt.setTurn
+			p1.Guesses = nil
+			p2.Guesses = nil
+			for i := 0; i < tt.setTurn-1; i++ {
+				if i%2 == 0 {
+					p1.Guesses = append(p1.Guesses, i)
+				} else {
+					p2.Guesses = append(p2.Guesses, i)
+				}
+			}
 			err := g.ValidateTurn(tt.playerID)
 
 			if (err != nil) != tt.wantErr {
@@ -79,7 +87,7 @@ func TestGame_FullMatchToVictory(t *testing.T) {
 	// Play 17 rounds: Player 1 hits every one of Player 2's ships; Player 2 misses at 80+i
 	for i, target := range p2Targets {
 		if err := g.PlayTurn("player-1", target); err != nil {
-			t.Fatalf("Turn %d: player-1 failed to fire at target %d: %v", g.Turn, target, err)
+			t.Fatalf("Turn %d: player-1 failed to fire at target %d: %v", g.GetTurnNumber(), target, err)
 		}
 
 		if i == len(p2Targets)-1 {
@@ -91,12 +99,12 @@ func TestGame_FullMatchToVictory(t *testing.T) {
 			t.Fatalf("failed to get mid-game state: %v", err)
 		}
 		if midState.Victor != 0 {
-			t.Fatalf("Turn %d: expected Victor == 0 mid-game, got %d", g.Turn, midState.Victor)
+			t.Fatalf("Turn %d: expected Victor == 0 mid-game, got %d", g.GetTurnNumber(), midState.Victor)
 		}
 
 		missCoord := 80 + i
 		if err := g.PlayTurn("player-2", missCoord); err != nil {
-			t.Fatalf("Turn %d: player-2 failed to fire at %d: %v", g.Turn, missCoord, err)
+			t.Fatalf("Turn %d: player-2 failed to fire at %d: %v", g.GetTurnNumber(), missCoord, err)
 		}
 	}
 
@@ -204,7 +212,7 @@ func TestGame_VictoryPermutations_BothPlayers(t *testing.T) {
 					if p.winnerID == "player-1" {
 						// P1 (winner) hits target
 						if err := g.PlayTurn("player-1", target); err != nil {
-							t.Fatalf("Turn %d: P1 failed to hit %d: %v", g.Turn, target, err)
+							t.Fatalf("Turn %d: P1 failed to hit %d: %v", g.GetTurnNumber(), target, err)
 						}
 
 						// Mid-game check: exactly when all firstTargets (4 ships) have been sunk
@@ -216,19 +224,19 @@ func TestGame_VictoryPermutations_BothPlayers(t *testing.T) {
 						if i < len(allTargets)-1 {
 							miss := 80 + i
 							if err := g.PlayTurn("player-2", miss); err != nil {
-								t.Fatalf("Turn %d: P2 failed to fire miss %d: %v", g.Turn, miss, err)
+								t.Fatalf("Turn %d: P2 failed to fire miss %d: %v", g.GetTurnNumber(), miss, err)
 							}
 						}
 					} else {
 						// P1 (loser) fires miss (80+i)
 						miss := 80 + i
 						if err := g.PlayTurn("player-1", miss); err != nil {
-							t.Fatalf("Turn %d: P1 failed to fire miss %d: %v", g.Turn, miss, err)
+							t.Fatalf("Turn %d: P1 failed to fire miss %d: %v", g.GetTurnNumber(), miss, err)
 						}
 
 						// P2 (winner) hits target
 						if err := g.PlayTurn("player-2", target); err != nil {
-							t.Fatalf("Turn %d: P2 failed to hit %d: %v", g.Turn, target, err)
+							t.Fatalf("Turn %d: P2 failed to hit %d: %v", g.GetTurnNumber(), target, err)
 						}
 
 						// Mid-game check: exactly when all firstTargets (4 ships) have been sunk

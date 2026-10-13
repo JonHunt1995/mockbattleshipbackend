@@ -31,3 +31,9 @@ go.work.sum
 # TLS Certificates
 *.pem
 certs/
+
+# Archives
+*.tar.gz
+*.tgz
+*.zip
+*.tar

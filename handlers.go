@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -14,19 +15,20 @@ import (
 
 func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request) {
 	var data ship.ShipCoordinates
+	var err error
 
-	if err := app.readJSON(w, r, &data); err != nil {
+	if err = app.readJSON(w, r, &data); err != nil {
 		app.handleDecodeError(w, err)
 		return
 	}
 
-	if err := data.AreValid(); err != nil {
+	if err = data.AreValid(); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
 	gameID := r.PathValue("gameID")
-	var err error
+
 	if gameID == "" {
 		app.notFoundResponse(w, r, err)
 		return
@@ -73,10 +75,14 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 		hostName = r.Host
 	}
 
-	domain, _, err := net.SplitHostPort(hostName)
-	if err != nil {
-		domain = hostName
+	prefix := "https://"
+	domain := hostName
+	if strings.Contains(hostName, "localhost") {
+		prefix = "http://"
+	} else if h, _, err := net.SplitHostPort(hostName); err == nil {
+		domain = h
 	}
+
 	gameID := uuid.New()
 
 	if err := app.store.Create(r.Context(), gameID.String()); err != nil {
@@ -84,7 +90,7 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteURL := fmt.Sprintf("%s/setup/%s", domain, gameID)
+	inviteURL := fmt.Sprintf("%s%s/setup/%s", prefix, domain, gameID)
 
 	payload := &createGameResponse{InviteLink: inviteURL}
 
@@ -243,7 +249,7 @@ func (app *application) pollHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	g.Mu.Lock()
-	currentTurn := g.Turn
+	currentTurn := g.GetTurnNumber()
 	playerCount := g.GetPlayerCount()
 	g.Mu.Unlock()
 

@@ -18,14 +18,12 @@ var (
 
 type Game struct {
 	Players []*player.Player
-	Turn    int
 	Mu      sync.Mutex
 }
 
 func NewGame(players []*player.Player) *Game {
 	return &Game{
 		Players: players,
-		Turn:    1,
 		Mu:      sync.Mutex{},
 	}
 }
@@ -34,6 +32,15 @@ func (g *Game) GetPlayerCount() int {
 	return len(g.Players)
 }
 
+func (g *Game) GetTurnNumber() int {
+	turns := 1
+
+	for _, p := range g.Players {
+		turns += len(p.Guesses)
+	}
+
+	return turns
+}
 func (g *Game) AddPlayer(p *player.Player) error {
 	for _, existing := range g.Players {
 		if existing.Id == p.Id {
@@ -71,7 +78,6 @@ func (g *Game) Clone() *ClonedGame {
 
 	return &ClonedGame{
 		Players: playersCopy,
-		Turn:    g.Turn,
 	}
 }
 
@@ -114,7 +120,7 @@ func (g *Game) GetOpponent(playerID string) (*player.Player, error) {
 }
 
 func (g *Game) ValidateTurn(playerID string) error {
-	playersTurn := (g.Turn + 1) % 2
+	playersTurn := (g.GetTurnNumber() + 1) % 2
 	if g.Players[playersTurn].Id == playerID {
 		return nil
 	}
@@ -126,10 +132,8 @@ func (g *Game) PlayTurn(playerID string, guess int) error {
 		return err
 	}
 
-	g.Turn++
-
-	if err := g.Players[g.Turn%2].AddGuess(guess); err != nil {
-		g.Turn--
+	playersTurn := (g.GetTurnNumber() + 1) % 2
+	if err := g.Players[playersTurn].AddGuess(guess); err != nil {
 		return err
 	}
 
@@ -174,8 +178,9 @@ func (g *Game) GetGameState(playerID string) (*GameStateResponse, error) {
 	var isYourTurn bool
 	opponentLivingShips := ship.NewLivingShips()
 	playerNumber, fullGame := g.GetPlayerNumber(playerID)
+	turnNumber := g.GetTurnNumber()
 
-	if fullGame && playerNumber-1 == (g.Turn-1)%2 {
+	if fullGame && playerNumber-1 == (turnNumber-1)%2 {
 		isYourTurn = true
 	} else {
 		isYourTurn = false
@@ -200,7 +205,7 @@ func (g *Game) GetGameState(playerID string) (*GameStateResponse, error) {
 		OpponentMisses:      opponentMisses,
 		OpponentLivingShips: opponentLivingShips,
 		IsYourTurn:          isYourTurn,
-		TurnNumber:          g.Turn,
+		TurnNumber:          turnNumber,
 		Victor:              victoryScore,
 		GameIsReady:         len(g.Players) == 2,
 	}, nil
