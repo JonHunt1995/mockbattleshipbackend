@@ -90,10 +90,9 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dest an
 // Using the error handling logic from same blog post and wrapping it into
 // a function for sanity.
 func (app *application) handleDecodeError(w http.ResponseWriter, err error) {
-	var mr *badRequest
 	payload := make(map[string]string)
 
-	if errors.As(err, &mr) {
+	if mr, ok := errors.AsType[*badRequest](err); ok {
 		payload["error"] = mr.msg
 
 		if writeErr := app.writeJSON(w, mr.status, payload, nil); writeErr != nil {

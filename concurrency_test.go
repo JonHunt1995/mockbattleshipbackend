@@ -45,9 +45,7 @@ func TestConcurrentGame_PlayTurnAndState(t *testing.T) {
 
 	// Goroutine reading game state concurrently
 	stopReader := make(chan struct{})
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-stopReader:
@@ -58,10 +56,10 @@ func TestConcurrentGame_PlayTurnAndState(t *testing.T) {
 				g.Mu.Unlock()
 			}
 		}
-	}()
+	})
 
 	// Simulate alternating turns between players
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		playerID := p1ID
 		if i%2 == 1 {
 			playerID = p2ID
@@ -119,9 +117,7 @@ func TestConcurrentApp_LobbyRace(t *testing.T) {
 	stopSignal := make(chan struct{})
 
 	// Goroutines performing moves on the game
-	writersWg.Add(1)
-	go func() {
-		defer writersWg.Done()
+	writersWg.Go(func() {
 		guess := 0
 		for {
 			select {
@@ -138,19 +134,17 @@ func TestConcurrentApp_LobbyRace(t *testing.T) {
 				g.Mu.Unlock()
 			}
 		}
-	}()
+	})
 
 	// Goroutines hitting getLobbyHandler (which calls ListJoinable)
-	for i := 0; i < 5; i++ {
-		readersWg.Add(1)
-		go func() {
-			defer readersWg.Done()
-			for j := 0; j < 50; j++ {
+	for range 5 {
+		readersWg.Go(func() {
+			for range 50 {
 				req := httptest.NewRequest(http.MethodGet, "/api/lobby", nil)
 				rec := httptest.NewRecorder()
 				app.getLobbyHandler(rec, req)
 			}
-		}()
+		})
 	}
 
 	readersWg.Wait()
