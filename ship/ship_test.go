@@ -1,7 +1,7 @@
-package main
+package ship
 
 import (
-	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -10,7 +10,7 @@ func TestValidShipPlacement(t *testing.T) {
 		name     string
 		ship     []int
 		shipName string
-		want     bool // Changed back to bool to match function return
+		want     bool
 	}{
 		// --- VALID CASES (Return true) ---
 		{"Valid Carrier Horizontal", []int{0, 1, 2, 3, 4}, "carrier", true},
@@ -45,10 +45,8 @@ func TestValidShipPlacement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// validShipPlacement returns a bool
 			got := validShipPlacement(tt.ship, tt.shipName)
 
-			// Simple boolean comparison
 			if got != tt.want {
 				t.Errorf("validShipPlacement(%v, %q) = %v; want %v", tt.ship, tt.shipName, got, tt.want)
 			}
@@ -110,7 +108,7 @@ func TestGetFlattenedCoords(t *testing.T) {
 		{
 			name: "Irregular Lengths (Too many/too few)",
 			sc: ShipCoordinates{
-				Carrier:   []int{1, 2}, // Should be 5, but flattener shouldn't care
+				Carrier:   []int{1, 2},
 				Destroyer: []int{10, 11, 12, 13, 14, 15},
 			},
 			want: []int{1, 2, 10, 11, 12, 13, 14, 15},
@@ -119,14 +117,9 @@ func TestGetFlattenedCoords(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.sc.getFlattenedCoords()
+			got := tt.sc.GetFlattenedCoords()
 
-			// If both are empty, DeepEqual might fail if one is nil and other is []int{}
-			if len(got) == 0 && len(tt.want) == 0 {
-				return
-			}
-
-			if !reflect.DeepEqual(got, tt.want) {
+			if !slices.Equal(got, tt.want) {
 				t.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
 			}
 		})
@@ -137,7 +130,7 @@ func TestShipCoordinates_AreValid(t *testing.T) {
 	tests := []struct {
 		name string
 		sc   ShipCoordinates
-		want bool // true means valid (nil error), false means invalid (has error)
+		want bool
 	}{
 		{
 			name: "Perfect Board (All Valid)",
@@ -187,12 +180,10 @@ func TestShipCoordinates_AreValid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.sc.areValid()
+			got := tt.sc.AreValid()
 
-			// Check if the presence of an error matches the boolean expectation
-			// (got == nil) is true if the ship is valid
 			if (got == nil) != tt.want {
-				t.Errorf("areValid() result error = %v, want valid = %v", got, tt.want)
+				t.Errorf("AreValid() result error = %v, want valid = %v", got, tt.want)
 			}
 		})
 	}

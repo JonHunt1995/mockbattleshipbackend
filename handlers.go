@@ -5,25 +5,30 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
+
+	"github.com/JonHunt1995/mockbattleshipbackend/player"
+	"github.com/JonHunt1995/mockbattleshipbackend/ship"
 )
 
 func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request) {
-	var data ShipCoordinates
+	var data ship.ShipCoordinates
+	var err error
 
-	if err := app.readJSON(w, r, &data); err != nil {
+	if err = app.readJSON(w, r, &data); err != nil {
 		app.handleDecodeError(w, err)
 		return
 	}
 
-	if err := data.areValid(); err != nil {
+	if err = data.AreValid(); err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
 	gameID := r.PathValue("gameID")
-	var err error
+
 	if gameID == "" {
 		app.notFoundResponse(w, r, err)
 		return
@@ -36,18 +41,19 @@ func (app *application) setupGameHandler(w http.ResponseWriter, r *http.Request)
 		playerID = playerUUID.String()
 	}
 
-	player := NewPlayer(data, playerID)
+	p := player.NewPlayer(data, playerID)
 
-	game, err := app.getGame(gameID)
+	g, err := app.store.Get(r.Context(), gameID)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	game.mu.Lock()
-	defer game.mu.Unlock()
+	g.Mu.Lock()
+	err = g.AddPlayer(p)
+	g.Mu.Unlock()
 
-	if err := game.addPlayer(player); err != nil {
+	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
 	}
@@ -69,18 +75,22 @@ func (app *application) createNewGame(w http.ResponseWriter, r *http.Request) {
 		hostName = r.Host
 	}
 
-	domain, _, err := net.SplitHostPort(hostName)
-	if err != nil {
-		domain = hostName
+	prefix := "https://"
+	domain := hostName
+	if strings.Contains(hostName, "localhost") {
+		prefix = "http://"
+	} else if h, _, err := net.SplitHostPort(hostName); err == nil {
+		domain = h
 	}
+
 	gameID := uuid.New()
 
-	if err := app.setGame(gameID.String()); err != nil {
+	if err := app.store.Create(r.Context(), gameID.String()); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	inviteURL := fmt.Sprintf("%s/setup/%s", domain, gameID)
+	inviteURL := fmt.Sprintf("%s%s/setup/%s", prefix, domain, gameID)
 
 	payload := &createGameResponse{InviteLink: inviteURL}
 
@@ -104,23 +114,24 @@ func (app *application) getGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game, err := app.getGame(gameID)
+	g, err := app.store.Get(r.Context(), gameID)
 
 	if err != nil {
 		app.notFoundResponse(w, r, err)
 		return
 	}
 
-	game.mu.Lock()
-	defer game.mu.Unlock()
-
-	player, err := game.getPlayer(playerID)
+	g.Mu.Lock()
+	p, err := g.GetPlayer(playerID)
 	if err != nil {
+		g.Mu.Unlock()
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	gs, err := game.getGameState(player.Id)
+	gs, err := g.GetGameState(p.Id)
+	g.Mu.Unlock()
+
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -171,22 +182,23 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	game, err := app.getGame(gameID)
+	g, err := app.store.Get(r.Context(), gameID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	game.mu.Lock()
-	defer game.mu.Unlock()
-
-	err = game.playTurn(playerID, move.getGuess())
+	g.Mu.Lock()
+	err = g.PlayTurn(playerID, move.getGuess())
 	if err != nil {
+		g.Mu.Unlock()
 		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	gs, err := game.getGameState(playerID)
+	gs, err := g.GetGameState(playerID)
+	g.Mu.Unlock()
+
 	if err != nil {
 		app.badRequestResponse(w, r, err)
 		return
@@ -199,13 +211,14 @@ func (app *application) postGameHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (app *application) getActiveGames(w http.ResponseWriter, r *http.Request) {
-	app.mu.Lock()
-	defer app.mu.Unlock()
-
-	err := app.writeJSON(w, http.StatusOK, app.games, nil)
+func (app *application) getLobbyHandler(w http.ResponseWriter, r *http.Request) {
+	games, err := app.store.ListJoinable(r.Context())
 	if err != nil {
-		app.logger.Error("json encoding failed", "error", err.Error())
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	if err := app.writeJSON(w, http.StatusOK, games, nil); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -229,16 +242,18 @@ func (app *application) pollHandler(w http.ResponseWriter, r *http.Request) {
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	game, err := app.getGame(gameID)
+	g, err := app.store.Get(r.Context(), gameID)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	game.mu.Lock()
-	defer game.mu.Unlock()
+	g.Mu.Lock()
+	currentTurn := g.GetTurnNumber()
+	playerCount := g.GetPlayerCount()
+	g.Mu.Unlock()
 
-	if turn == game.Turn && numPlayers == game.getPlayerCount() {
+	if turn == currentTurn && numPlayers == playerCount {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}

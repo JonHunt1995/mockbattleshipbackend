@@ -14,7 +14,7 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("POST /api/play/{gameID}", app.postGameHandler)
 	mux.HandleFunc("GET /api/poll/{gameID}/{turn}/{numPlayers}", app.pollHandler)
 	mux.HandleFunc("POST /api/newgame", app.createNewGame)
-	mux.HandleFunc("GET /api/games", app.getActiveGames)
+	mux.HandleFunc("GET /api/lobby", app.getLobbyHandler)
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173", "https://gentechbattleship.pages.dev/"},

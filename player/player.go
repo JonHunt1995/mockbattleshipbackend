@@ -1,32 +1,24 @@
-package main
+package player
 
-import "slices"
+import (
+	"errors"
+	"slices"
+
+	"github.com/JonHunt1995/mockbattleshipbackend/ship"
+)
+
+var (
+	ErrOutOfBounds   = errors.New("This guess is out of bounds from the grid")
+	ErrAlreadyPlayed = errors.New("You already played this")
+)
 
 type Player struct {
-	Ships   ShipCoordinates
+	Ships   ship.ShipCoordinates
 	Id      string
 	Guesses []int
 }
 
-type LivingShips struct {
-	Carrier    bool
-	Battleship bool
-	Cruiser    bool
-	Submarine  bool
-	Destroyer  bool
-}
-
-func NewLivingShips() LivingShips {
-	return LivingShips{
-		Carrier:    true,
-		Battleship: true,
-		Cruiser:    true,
-		Submarine:  true,
-		Destroyer:  true,
-	}
-}
-
-func NewPlayer(sc ShipCoordinates, id string) *Player {
+func NewPlayer(sc ship.ShipCoordinates, id string) *Player {
 	var guesses []int
 
 	return &Player{
@@ -35,25 +27,20 @@ func NewPlayer(sc ShipCoordinates, id string) *Player {
 		Guesses: guesses,
 	}
 }
-func (p *Player) validateGuess(guess int) error {
+
+func (p *Player) ValidateGuess(guess int) error {
 	if guess < 0 || guess >= 100 {
-		return &badRequest{
-			status: 400, // Bad Request
-			msg:    "This guess is out of bounds from the grid",
-		}
+		return ErrOutOfBounds
 	}
 	if slices.Contains(p.Guesses, guess) {
-		return &badRequest{
-			status: 400, // Bad Request
-			msg:    "You already played this",
-		}
+		return ErrAlreadyPlayed
 	}
 
 	return nil
 }
 
 func (p *Player) AddGuess(guess int) error {
-	if err := p.validateGuess(guess); err != nil {
+	if err := p.ValidateGuess(guess); err != nil {
 		return err
 	}
 
@@ -62,14 +49,14 @@ func (p *Player) AddGuess(guess int) error {
 	return nil
 }
 
-func (p *Player) getHitsAndMisses(other *Player) ([]int, []int) {
+func (p *Player) GetHitsAndMisses(other *Player) ([]int, []int) {
 	hitMap := make(map[int]bool)
 	var hits, misses []int
 
-	ships := other.Ships.getFlattenedCoords()
+	ships := other.Ships.GetFlattenedCoords()
 
-	for _, ship := range ships {
-		hitMap[ship] = true
+	for _, s := range ships {
+		hitMap[s] = true
 	}
 
 	for _, guess := range p.Guesses {
@@ -84,13 +71,13 @@ func (p *Player) getHitsAndMisses(other *Player) ([]int, []int) {
 	return hits, misses
 }
 
-func (p *Player) getLivingShips(other *Player) LivingShips {
+func (p *Player) GetLivingShips(other *Player) ship.LivingShips {
 	guesses := make(map[int]bool)
 	for _, guess := range other.Guesses {
 		guesses[guess] = true
 	}
 
-	return LivingShips{
+	return ship.LivingShips{
 		Carrier:    isShipAlive(p.Ships.Carrier, guesses),
 		Battleship: isShipAlive(p.Ships.Battleship, guesses),
 		Cruiser:    isShipAlive(p.Ships.Cruiser, guesses),
